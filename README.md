@@ -1,1 +1,1 @@
-# arch-installer
+# Setup
