@@ -65,8 +65,8 @@ print_step "Checking for AUR helper..."
 if ! command -v yay &> /dev/null; then
     print_status "Installing yay AUR helper..."
     cd /tmp
-    git clone https://aur.archlinux.org/yay.git
-    cd yay
+    git clone https://aur.archlinux.org/yay-bin.git
+    cd yay-bin
     makepkg -si --noconfirm
     cd ~
 else
