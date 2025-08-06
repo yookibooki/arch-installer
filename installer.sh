@@ -56,7 +56,7 @@ install_packages() {
     step "Installing packages..."
     local packages=(
         i3-wm dmenu xorg-server xorg-xinit xorg-xrandr alsa-utils
-        kitty open-ssh wget ttf-firacode-nerd brave-bin git base-devel redshift yay neovim
+        kitty openssh wget ttf-firacode-nerd brave-bin git base-devel redshift yay neovim
         visual-studio-code-bin xclip nodejs npm go uv
     )
     sudo pacman -S --noconfirm --needed "${packages[@]}"
