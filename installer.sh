@@ -154,7 +154,11 @@ EOF
 
     # Append to .bashrc
     cat >> ~/.bashrc << 'EOF'
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
 
+xc() { xclip -selection clipboard < "$1"; }
+PS1='[\u@\h \W]\$ '
 export EDITOR=nvim
 export TERMINAL=kitty
 EOF
