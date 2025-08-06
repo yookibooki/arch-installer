@@ -1,3 +1,28 @@
 ttf-nerd-fonts-symbols
 otf-font-awesome
 ttf-input-nerd
+
+# Brave - disable those
+- **Brave AI Chat**  
+- **Brave AI Chat History**  
+- **Brave AI Host-Specific Distillation**  
+- **Brave AI Chat Rewrite In Place From Context Menu**  
+- **Brave News Feed Update**  
+- **Brave News prompts on New Tab Page**  
+- **Brave Rewards Gemini**  
+- **Enable Brave Wallet**  
+- **Enable Gemini for Brave Rewards**  
+- **Enable Playlist**  
+- **Enable Zcash support for Brave Wallet**  
+- **Enable Bitcoin support for Brave Wallet**  
+- **NTP Calendar Module**  
+- **NTP Microsoft Authentication Module**  
+- **NTP Most Relevant Tab Resumption Module**  
+- **NTP Outlook Calendar Module**  
+- **NTP Sharepoint Module**  
+- **Open Leo AI Chat from Brave Search**  
+- **Override download danger level**  
+- **Parallel downloading**  
+- **Rewriter API for Gemini Nano**  
+- **Summarization API for Gemini Nano**  
+- **Writer API for Gemini Nano**
