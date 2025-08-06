@@ -47,13 +47,10 @@ print_step "Configuring pacman mirrors..."
 sudo curl -o /etc/pacman.d/mirrorlist "https://archlinux.org/mirrorlist/?country=all&protocol=http&ip_version=4&use_mirror_status=on"
 sudo sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
 
-# Add custom mirror only if it's not already there
-if ! grep -q "mirror.dc.uz" /etc/pacman.d/mirrorlist; then
-    print_status "Adding custom mirror..."
-    sudo sed -i '1iServer = http://mirror.dc.uz/arch/$repo/os/$arch' /etc/pacman.d/mirrorlist
-else
-    print_warning "Custom mirror already present in /etc/pacman.d/mirrorlist, skipping."
-fi
+# Place mirror.dc.uz at the top
+print_status "Prioritizing mirror.dc.uz at top of mirrorlist..."
+sudo sed -i '/mirror\.dc\.uz/d' /etc/pacman.d/mirrorlist
+sudo sed -i '1iServer = http://mirror.dc.uz/arch/$repo/os/$arch' /etc/pacman.d/mirrorlist
 
 # Update system
 print_step "Updating system packages..."
