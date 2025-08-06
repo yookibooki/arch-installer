@@ -81,17 +81,18 @@ PACMAN_PACKAGES=(
     "i3-wm"
     "dmenu"
     "xorg-xinit"
-    "redshift"
-    "neovim"
-    "git"
-    "base-devel"
-    "nerd-fonts" # Meta-package for nerd fonts, simpler than individual ones
-    "font-awesome"
-    "xterm"
     "xorg-xrandr"
     "xorg-xset"
-    "visual-studio-code-insiders-bin"
+    "xterm"
     "brave-bin"
+    "git"
+    "base-devel"
+    "redshift"
+    "yay"
+    "neovim"
+    "ttf-nerd-fonts-symbols"
+    "otf-font-awesome"
+    "visual-studio-code-bin"
 )
 
 # Use --needed to only install missing packages
