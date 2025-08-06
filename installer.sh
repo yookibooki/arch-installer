@@ -110,7 +110,7 @@ print_step "Creating i3 configuration..."
 if [ ! -f ~/.config/i3/config ]; then
     cat > ~/.config/i3/config << 'EOF'
 set $mod Mod4
-font pango:monospace 8
+font pango:monospace 16
 
 # Window appearance
 default_border pixel 1
