@@ -74,7 +74,6 @@ else
     print_warning "Chaotic AUR repository already configured, skipping."
 fi
 
-
 # --- Package Installation ---
 print_step "Installing packages from pacman..."
 PACMAN_PACKAGES=(
@@ -84,6 +83,7 @@ PACMAN_PACKAGES=(
     "xorg-xrandr"
     "xorg-xset"
     "xterm"
+    "wget"
     "brave-bin"
     "git"
     "base-devel"
@@ -304,7 +304,6 @@ EOF
 else
     print_warning "Systemd autologin override already exists, skipping."
 fi
-
 
 # Update bashrc with environment variables (this is already idempotent)
 print_step "Updating bashrc with environment variables..."
