@@ -157,8 +157,6 @@ EOF
 
 export EDITOR=nvim
 export TERMINAL=kitty
-echo "Today is $(date '+%A, %B %d, %Y')"
-uptime
 EOF
 }
 
