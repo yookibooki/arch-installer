@@ -56,7 +56,7 @@ install_packages() {
     step "Installing packages..."
     local packages=(
         i3-wm dmenu xorg-server xorg-xinit xorg-xrandr alsa-utils
-        kitty wget brave-bin git base-devel redshift yay neovim
+        kitty open-ssh wget ttf-firacode-nerd brave-bin git base-devel redshift yay neovim
         visual-studio-code-bin xclip nodejs npm go uv
     )
     sudo pacman -S --noconfirm --needed "${packages[@]}"
@@ -68,7 +68,7 @@ setup_i3() {
     mkdir -p ~/.config/i3
     cat > ~/.config/i3/config << 'EOF'
 set $mod Mod4
-font pango:DejaVu Sans Mono 10
+font pango:FiraCode Nerd Font Mono 14
 
 # Window appearance
 default_border pixel 2
