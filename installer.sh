@@ -129,7 +129,7 @@ assign [class="Code"] 3
 bindsym $mod+d exec --no-startup-id dmenu_run
 bindsym $mod+b exec brave; workspace number 1
 bindsym $mod+Return exec i3-sensible-terminal; workspace number 2
-bindsym $mod+c exec code-insiders; workspace number 3
+bindsym $mod+c exec code; workspace number 3
 
 # Display switching
 set $mode_display display
@@ -294,7 +294,6 @@ fi
 print_step "Creating systemd autologin configuration..."
 SYSTEMD_OVERRIDE_PATH="/etc/systemd/system/getty@tty1.service.d/override.conf"
 if [ ! -f "$SYSTEMD_OVERRIDE_PATH" ]; then
-    # IMPORTANT: Use the current user's name, not a hardcoded one.
     cat > /tmp/systemd-override/override.conf << EOF
 [Service]
 ExecStart=
@@ -334,7 +333,7 @@ rm -rf /tmp/systemd-override
 print_status "Installation completed successfully!"
 print_status "Configuration summary:"
 echo "  - i3 window manager installed and configured"
-echo "  - Applications: Brave browser, VS Code Insiders, Neovim"
+echo "  - Applications: Brave browser, VS Code, Neovim"
 echo "  - Auto-login configured for user '${YELLOW}$USER${NC}'"
 echo "  - Redshift configured for Tashkent location"
 echo "  - XTerm configured with custom colors and fonts"
@@ -343,7 +342,7 @@ print_status "Key bindings:"
 echo "  - Mod+d: Application launcher (dmenu)"
 echo "  - Mod+Return: Terminal"
 echo "  - Mod+b: Brave browser"
-echo "  - Mod+c: VS Code Insiders"
+echo "  - Mod+c: VS Code"
 echo "  - Mod+x: Display switching mode"
 echo "  - Mod+1-10: Switch workspaces"
 echo "  - Mod+Shift+q: Close window"
