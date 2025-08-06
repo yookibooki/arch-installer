@@ -1,7 +1,3 @@
-ttf-nerd-fonts-symbols
-otf-font-awesome
-ttf-input-nerd
-
 # Brave - disable those
 - **Brave AI Chat**  
 - **Brave AI Chat History**  
