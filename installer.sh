@@ -58,7 +58,7 @@ setup_chaotic_aur() {
 install_packages() {
   step "Installing packages..."
   local pacman_pkgs=(
-    alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iw iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin yay
+    alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin yay
   )
   local aur_pkgs=(
     koreader-bin windsurf
@@ -262,6 +262,14 @@ main() {
   step "Setting up st..."
   curl -L https://dl.suckless.org/st/st-0.9.3.tar.gz | sudo tar -xz --strip-components=1 -C /opt/st
   sudo chown -R $USER /opt/st
+
+  step "go install things..."
+  go install github.com/cosmtrek/air@latest
+  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+  go install golang.org/x/tour@latest
+  go install golang.org/x/tools/cmd/goimports@latest
+  go install golang.org/x/tools/gopls@latest
+  go install honnef.co/go/tools/cmd/staticcheck@latest
 
   step "Setting up Docker..."
   sudo usermod -aG docker $USER
