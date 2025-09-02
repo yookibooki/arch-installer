@@ -19,11 +19,8 @@ check_privileges() {
 # Configure mirrors
 setup_mirrors() {
     step "Configuring pacman mirrors..."
-    sudo curl -so /etc/pacman.d/mirrorlist \
-        "https://archlinux.org/mirrorlist/?country=all&protocol=http&ip_version=4&use_mirror_status=on"
+    sudo curl -so /etc/pacman.d/mirrorlist "https://archlinux.org/mirrorlist/?country=all&protocol=https&ip_version=4&use_mirror_status=on"
     sudo sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
-    
-    # Prioritize local mirror
     sudo sed -i '/mirror\.dc\.uz/d' /etc/pacman.d/mirrorlist
     sudo sed -i '1iServer = http://mirror.dc.uz/arch/$repo/os/$arch' /etc/pacman.d/mirrorlist
 }
@@ -56,8 +53,8 @@ install_packages() {
     step "Installing packages..."
     local packages=(
         i3-wm dmenu xorg-server xorg-xinit xorg-xrandr alsa-utils
-        kitty openssh wget ttf-firacode-nerd brave-bin git base-devel redshift yay neovim
-        visual-studio-code-bin xclip go uv
+        xterm openssh wget ttf-firacode-nerd brave-bin git base-devel redshift yay neovim
+        visual-studio-code-bin xclip go uv anydesk-bin
     )
     sudo pacman -S --noconfirm --needed "${packages[@]}"
 }
@@ -68,37 +65,52 @@ setup_i3() {
     mkdir -p ~/.config/i3
     cat > ~/.config/i3/config << 'EOF'
 set $mod Mod4
-font pango:FiraCode Nerd Font Mono 14
 
-# Window appearance
-default_border pixel 2
-default_floating_border pixel 2
-hide_edge_borders smart
-
-# Auto-start applications
-exec --no-startup-id redshift
-
-# Application assignments
-assign [class="Brave-browser"] 1
-assign [class="kitty"] 2
-assign [class="Code"] 3
-
-# Key bindings
-bindsym $mod+d exec --no-startup-id dmenu_run
-bindsym $mod+b exec brave; workspace number 1
-bindsym $mod+Return exec kitty; workspace number 2
-bindsym $mod+c exec code; workspace number 3
-bindsym $mod+Shift+q kill
-
-# Display mode
-set $mode_display Display: (l)aptop, (e)xternal
-mode "$mode_display" {
+# Menu for Displays & Power
+mode "x"{
     bindsym l exec xrandr --output eDP-1 --auto --output HDMI-1 --off; mode "default"
     bindsym e exec xrandr --output HDMI-1 --auto --output eDP-1 --off; mode "default"
+    bindsym p exec sudo systemctl poweroff; mode "default"
+    bindsym r exec sudo systemctl reboot; mode "default"
     bindsym Return mode "default"
     bindsym Escape mode "default"
 }
-bindsym $mod+x mode "$mode_display"
+bindsym $mod+x mode "x"
+
+# Appearance
+focus_follows_mouse no
+default_border none 
+hide_edge_borders smart
+focus_on_window_activation smart
+
+# Workspace assignments
+assign [class="^Brave-browser$"] 1
+assign [class="^st$"] 2
+assign [class="^Windsurf$"] 3
+assign [class="^code$"] 3
+
+# Apps
+bindsym $mod+b workspace number 1; exec brave
+bindsym $mod+Return workspace number 2; exec st -e tmux new -A -s main
+bindsym $mod+w workspace number 3; exec windsurf
+bindsym $mod+c workspace number 3; exec code
+bindsym $mod+d exec --no-startup-id dmenu_run
+bindsym $mod+q kill
+
+# Quake-style scratchpad
+for_window [title="^Scratchpad$"] move to scratchpad
+bindsym $mod+Shift+Return exec st -t Scratchpad -e tmux new -A -s main
+bindsym $mod+minus scratchpad show
+
+# Splits
+bindsym $mod+Shift+v split v
+bindsym $mod+Shift+h split h
+
+# Focus (Vim-style)
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
 
 # Workspaces
 bindsym $mod+1 workspace number 1
@@ -112,7 +124,19 @@ bindsym $mod+8 workspace number 8
 bindsym $mod+9 workspace number 9
 bindsym $mod+0 workspace number 10
 
-# i3 controls
+# Move Workspaces
+bindsym $mod+Shift+1 move workspace 1
+bindsym $mod+Shift+2 move workspace 2
+bindsym $mod+Shift+3 move workspace 3
+bindsym $mod+Shift+4 move workspace 4
+bindsym $mod+Shift+5 move workspace 5
+bindsym $mod+Shift+6 move workspace 6
+bindsym $mod+Shift+7 move workspace 7
+bindsym $mod+Shift+8 move workspace 8
+bindsym $mod+Shift+9 move workspace 9
+bindsym $mod+Shift+0 move workspace 10
+
+# Reload/Restart i3
 bindsym $mod+Shift+c reload
 bindsym $mod+Shift+r restart
 EOF
@@ -139,6 +163,8 @@ EOF
 
     # .xinitrc
     cat > ~/.xinitrc << 'EOF'
+xrandr --output HDMI-1 --auto --output eDP-1 --off
+redshift &
 exec i3
 EOF
     chmod +x ~/.xinitrc
@@ -154,13 +180,15 @@ EOF
 
     # Append to .bashrc
     cat >> ~/.bashrc << 'EOF'
-# If not running interactively, don't do anything
-[[ $- != *i* ]] && return
-
-xc() { xclip -selection clipboard < "$1"; }
-PS1='[\u@\h \W]\$ '
+alias xc='xclip -selection clipboard'
 export EDITOR=nvim
-export TERMINAL=kitty
+export TERMINAL=st
+# Keep $HOME/.local/bin at first line for anydesk to work correctly
+export PATH="$HOME/.local/bin:$HOME/go/bin:/usr/local/go/bin:$PATH"
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
 EOF
 }
 
