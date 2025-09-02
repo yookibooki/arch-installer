@@ -1,4 +1,5 @@
-# Disable those in Brave
+# Brave settings
+Flags to disable:
 - **Brave AI Chat**  
 - **Brave AI Chat History**  
 - **Brave AI Host-Specific Distillation**  
@@ -22,3 +23,9 @@
 - **Rewriter API for Gemini Nano**  
 - **Summarization API for Gemini Nano**  
 - **Writer API for Gemini Nano**
+Settings>search engines:
+`https://www.google.com/search?udm=50&q=%s`
+`https://chatgpt.com/?q=%s`
+`https://github.com/search?q=%s&s=stars&o=desc`
+`https://yandex.ru/search/?text=%s`
+`https://www.youtube.com/results?search_query=%s`

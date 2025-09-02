@@ -1,0 +1,1 @@
+`curl -fsSL https://arch.yooki.workers.dev | bash`

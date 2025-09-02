@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Arch Linux Setup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        h1, h2 {
+            color: #569cd6;
+            border-bottom: 1px solid #444;
+            padding-bottom: 0.3em;
+        }
+        pre {
+            background-color: #252526;
+            padding: 1em;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: "Fira Code", "Courier New", monospace;
+            background-color: #333;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+        .warning {
+            background-color: #442727;
+            border-left: 4px solid #f44747;
+            padding: 1em;
+            margin: 2em 0;
+            border-radius: 4px;
+        }
+        ul {
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Personal Arch Linux Setup Script</h1>
+
+    <div class="warning">
+        <strong>This is a personal script for my own use.</strong><br>
+        It is highly opinionated and destructive. It is not intended for public consumption and is shared only for reference. Do not run this unless you are me or you understand exactly what it does.
+    </div>
+
+    <h2>Usage</h2>
+    <pre><code>curl -fsSL https://arch.yooki.workers.dev | bash</code></pre>
+
+    <h2>Installed Packages</h2>
+    <ul>
+        <li>alsa-utils</li>
+        <li>anydesk-bin</li>
+        <li>arch-wiki-lite</li>
+        <li>brave-bin</li>
+        <li>btop</li>
+        <li>dmenu</li>
+        <li>docker & docker-compose</li>
+        <li>git</li>
+        <li>i3-wm</li>
+        <li>intel-ucode</li>
+        <li>iw & iwd</li>
+        <li>koreader-bin (AUR)</li>
+        <li>neovim (with LazyVim starter)</li>
+        <li>nodejs (via fnm)</li>
+        <li>noto-fonts-emoji</li>
+        <li>openssh</li>
+        <li>postgresql</li>
+        <li>redshift</li>
+        <li>tmux</li>
+        <li>ttf-firacode-nerd</li>
+        <li>uv</li>
+        <li>visual-studio-code-bin</li>
+        <li>windsurf (AUR)</li>
+        <li>xclip</li>
+        <li>xorg (server, xinit, xrandr)</li>
+        <li>yay</li>
+    </ul>
+
+    <h2>Files Created or Overwritten</h2>
+    <h3>User Configuration (~/)</h3>
+    <ul>
+        <li><code>~/.config/i3/config</code></li>
+        <li><code>~/.config/redshift.conf</code></li>
+        <li><code>~/.config/tmux/tmux.conf</code></li>
+        <li><code>~/.config/nvim/</code> (LazyVim starter)</li>
+        <li><code>~/.gemini/settings.json</code></li>
+        <li><code>~/.xinitrc</code></li>
+        <li><code>~/.bash_profile</code></li>
+        <li>Appends aliases and exports to <code>~/.bashrc</code></li>
+    </ul>
+    <h3>System Configuration (/etc)</h3>
+    <ul>
+        <li><code>/etc/pacman.d/mirrorlist</code></li>
+        <li>Appends Chaotic-AUR to <code>/etc/pacman.conf</code></li>
+        <li><code>/etc/systemd/system/getty@tty1.service.d/override.conf</code> (for autologin)</li>
+    </ul>
+
+</body>
+</html>
