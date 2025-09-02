@@ -1,4 +1,4 @@
-# Brave - disable those
+# Disable those in Brave
 - **Brave AI Chat**  
 - **Brave AI Chat History**  
 - **Brave AI Host-Specific Distillation**  
