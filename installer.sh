@@ -51,12 +51,14 @@ setup_chaotic_aur() {
 # Install packages
 install_packages() {
     step "Installing packages..."
-    local packages=(
-        i3-wm dmenu xorg-server xorg-xinit xorg-xrandr alsa-utils
-        xterm openssh wget ttf-firacode-nerd brave-bin git base-devel redshift yay neovim
-        visual-studio-code-bin xclip go uv anydesk-bin
+    local pacman_pkgs=(
+        alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iw iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin yay
     )
-    sudo pacman -S --noconfirm --needed "${packages[@]}"
+    local aur_pkgs=(
+        koreader-bin windsurf
+    )
+    sudo pacman -S --noconfirm --needed "${pacman_pkgs[@]}"
+    yay -S --noconfirm --needed "${aur_pkgs[@]}"
 }
 
 # Setup i3 configuration
@@ -161,6 +163,41 @@ lat=41.3
 lon=69.3
 EOF
 
+    # Gemini CLI config
+    mkdir -p ~/.gemini
+    cat > ~/.gemini/settings.json << 'EOF'
+{
+  "selectedAuthType": "oauth-personal",
+  "mcpServers": {
+    "context7": {
+      "httpUrl": "https://mcp.context7.com/mcp"
+    }
+  }
+}
+EOF
+
+    # Tmux config
+    mkdir -p ~/.config/tmux
+    cat > ~/.config/tmux/tmux.conf << 'EOF'
+# Enable Mouse
+set -g mouse on
+
+# Disable Status Bar
+set -g status off
+
+# Copy to System Clipboard with y
+bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "xclip -sel clip -i"
+
+# Start Window/Pane Numbering at 1
+set -g base-index 1
+setw -g pane-base-index 1
+
+# Change Prefix to Ctrl-a
+unbind C-b
+set -g prefix C-a
+bind C-a send-prefix
+EOF
+
     # .xinitrc
     cat > ~/.xinitrc << 'EOF'
 xrandr --output HDMI-1 --auto --output eDP-1 --off
@@ -183,12 +220,7 @@ EOF
 alias xc='xclip -selection clipboard'
 export EDITOR=nvim
 export TERMINAL=st
-# Keep $HOME/.local/bin at first line for anydesk to work correctly
 export PATH="$HOME/.local/bin:$HOME/go/bin:/usr/local/go/bin:$PATH"
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
 EOF
 }
 
@@ -221,6 +253,25 @@ main() {
     install_packages
     setup_i3
     
+    step "Setting up Docker..."
+    sudo usermod -aG docker $USER
+
+    step "Installing Node.js..."
+    curl -o- https://fnm.vercel.app/install | bash
+    export PATH="$HOME/.fnm:$PATH"
+    eval "$(fnm env --shell bash)"
+    fnm install 24
+
+    step "Installing Gemini CLI..."
+    npm install -g @google/gemini-cli
+
+    step "Installing LazyVim..."
+    git clone --depth 1 https://github.com/LazyVim/starter ~/.config/nvim
+    rm -rf ~/.config/nvim/.git
+
+    step "Setting up PostgreSQL..."
+    sudo -u postgres initdb -D /var/lib/postgres/data
+
     step "Enabling alsa-state service..."
     sudo systemctl enable alsa-state
     
