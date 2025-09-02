@@ -12,60 +12,66 @@ trap 'error "Script failed at line $LINENO"' ERR
 
 # Privilege checks
 check_privileges() {
-    [[ $EUID -eq 0 ]] && { error "Don't run as root. Use regular user with sudo."; exit 1; }
-    sudo -v || { error "Sudo access required."; exit 1; }
+  [[ $EUID -eq 0 ]] && {
+    error "Don't run as root. Use regular user with sudo."
+    exit 1
+  }
+  sudo -v || {
+    error "Sudo access required."
+    exit 1
+  }
 }
 
 # Configure mirrors
 setup_mirrors() {
-    step "Configuring pacman mirrors..."
-    sudo curl -so /etc/pacman.d/mirrorlist "https://archlinux.org/mirrorlist/?country=all&protocol=https&ip_version=4&use_mirror_status=on"
-    sudo sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
-    sudo sed -i '/mirror\.dc\.uz/d' /etc/pacman.d/mirrorlist
-    sudo sed -i '1iServer = http://mirror.dc.uz/arch/$repo/os/$arch' /etc/pacman.d/mirrorlist
+  step "Configuring pacman mirrors..."
+  sudo curl -so /etc/pacman.d/mirrorlist "https://archlinux.org/mirrorlist/?country=all&protocol=https&ip_version=4&use_mirror_status=on"
+  sudo sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
+  sudo sed -i '/mirror\.dc\.uz/d' /etc/pacman.d/mirrorlist
+  sudo sed -i '1iServer = http://mirror.dc.uz/arch/$repo/os/$arch' /etc/pacman.d/mirrorlist
 }
 
 # Setup Chaotic AUR
 setup_chaotic_aur() {
-    step "Setting up Chaotic AUR..."
-    if grep -q "\[chaotic-aur\]" /etc/pacman.conf; then
-        warn "Chaotic AUR already configured, skipping."
-        return
-    fi
-    
-    sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-    sudo pacman-key --lsign-key 3056513887B78AEB
-    sudo pacman --noconfirm -U \
-        'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' \
-        'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
-    
-    {
-        echo ""
-        echo "[chaotic-aur]"
-        echo "Include = /etc/pacman.d/chaotic-mirrorlist"
-    } | sudo tee -a /etc/pacman.conf > /dev/null
-    
-    sudo sed -i "/\[multilib\]/,/Include/"'s/^#//' /etc/pacman.conf
+  step "Setting up Chaotic AUR..."
+  if grep -q "\[chaotic-aur\]" /etc/pacman.conf; then
+    warn "Chaotic AUR already configured, skipping."
+    return
+  fi
+
+  sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+  sudo pacman-key --lsign-key 3056513887B78AEB
+  sudo pacman --noconfirm -U \
+    'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' \
+    'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+
+  {
+    echo ""
+    echo "[chaotic-aur]"
+    echo "Include = /etc/pacman.d/chaotic-mirrorlist"
+  } | sudo tee -a /etc/pacman.conf >/dev/null
+
+  sudo sed -i "/\[multilib\]/,/Include/"'s/^#//' /etc/pacman.conf
 }
 
 # Install packages
 install_packages() {
-    step "Installing packages..."
-    local pacman_pkgs=(
-        alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iw iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin yay
-    )
-    local aur_pkgs=(
-        koreader-bin windsurf
-    )
-    sudo pacman -S --noconfirm --needed "${pacman_pkgs[@]}"
-    yay -S --noconfirm --needed "${aur_pkgs[@]}"
+  step "Installing packages..."
+  local pacman_pkgs=(
+    alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iw iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin yay
+  )
+  local aur_pkgs=(
+    koreader-bin windsurf
+  )
+  sudo pacman -S --noconfirm --needed "${pacman_pkgs[@]}"
+  yay -S --noconfirm --nodiffmenu --needed "${aur_pkgs[@]}"
 }
 
 # Setup i3 configuration
 setup_i3() {
-    step "Setting up i3 configuration..."
-    mkdir -p ~/.config/i3
-    cat > ~/.config/i3/config << 'EOF'
+  step "Setting up i3 configuration..."
+  mkdir -p ~/.config/i3
+  cat >~/.config/i3/config <<'EOF'
 set $mod Mod4
 
 # Menu for Displays & Power
@@ -146,11 +152,11 @@ EOF
 
 # Create configuration files
 create_configs() {
-    step "Creating configuration files..."
-    
-    # Redshift config
-    mkdir -p ~/.config
-    cat > ~/.config/redshift.conf << 'EOF'
+  step "Creating configuration files..."
+
+  # Redshift config
+  mkdir -p ~/.config
+  cat >~/.config/redshift.conf <<'EOF'
 [redshift]
 temp-day=3000
 temp-night=3000
@@ -163,9 +169,9 @@ lat=41.3
 lon=69.3
 EOF
 
-    # Gemini CLI config
-    mkdir -p ~/.gemini
-    cat > ~/.gemini/settings.json << 'EOF'
+  # Gemini CLI config
+  mkdir -p ~/.gemini
+  cat >~/.gemini/settings.json <<'EOF'
 {
   "selectedAuthType": "oauth-personal",
   "mcpServers": {
@@ -176,9 +182,9 @@ EOF
 }
 EOF
 
-    # Tmux config
-    mkdir -p ~/.config/tmux
-    cat > ~/.config/tmux/tmux.conf << 'EOF'
+  # Tmux config
+  mkdir -p ~/.config/tmux
+  cat >~/.config/tmux/tmux.conf <<'EOF'
 # Enable Mouse
 set -g mouse on
 
@@ -198,16 +204,16 @@ set -g prefix C-a
 bind C-a send-prefix
 EOF
 
-    # .xinitrc
-    cat > ~/.xinitrc << 'EOF'
+  # .xinitrc
+  cat >~/.xinitrc <<'EOF'
 xrandr --output HDMI-1 --auto --output eDP-1 --off
 redshift &
 exec i3
 EOF
-    chmod +x ~/.xinitrc
+  chmod +x ~/.xinitrc
 
-    # .bash_profile
-    cat > ~/.bash_profile << 'EOF'
+  # .bash_profile
+  cat >~/.bash_profile <<'EOF'
 [[ -f ~/.bashrc ]] && . ~/.bashrc
 
 if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ]; then
@@ -215,8 +221,8 @@ if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ]; then
 fi
 EOF
 
-    # Append to .bashrc
-    cat >> ~/.bashrc << 'EOF'
+  # Append to .bashrc
+  cat >>~/.bashrc <<'EOF'
 alias xc='xclip -selection clipboard'
 export EDITOR=nvim
 export TERMINAL=st
@@ -226,63 +232,67 @@ EOF
 
 # Setup autologin
 setup_autologin() {
-    step "Setting up autologin..."
-    local vt=${XDG_VTNR:-1}
-    sudo mkdir -p "/etc/systemd/system/getty@tty$vt.service.d"
-    sudo tee "/etc/systemd/system/getty@tty$vt.service.d/override.conf" > /dev/null << EOF
+  step "Setting up autologin..."
+  local vt=${XDG_VTNR:-1}
+  sudo mkdir -p "/etc/systemd/system/getty@tty$vt.service.d"
+  sudo tee "/etc/systemd/system/getty@tty$vt.service.d/override.conf" >/dev/null <<EOF
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
 EOF
-    info "Autologin configured for user: $USER on tty$vt"
+  info "Autologin configured for user: $USER on tty$vt"
 }
 
 # Main execution
 main() {
-    info "Starting Arch Linux i3 setup..."
-    
-    check_privileges
-    setup_mirrors
-    
-    step "Updating system packages..."
-    sudo pacman -Syu --noconfirm
-    
-    setup_chaotic_aur
-    sudo pacman -Syu --noconfirm
-    
-    install_packages
-    setup_i3
-    
-    step "Setting up Docker..."
-    sudo usermod -aG docker $USER
+  info "Starting Arch Linux i3 setup..."
 
-    step "Installing Node.js..."
-    curl -o- https://fnm.vercel.app/install | bash
-    export PATH="$HOME/.fnm:$PATH"
-    eval "$(fnm env --shell bash)"
-    fnm install 24
+  check_privileges
+  setup_mirrors
 
-    step "Installing Gemini CLI..."
-    npm install -g @google/gemini-cli
+  step "Updating system packages..."
+  sudo pacman -Syu --noconfirm
 
-    step "Installing LazyVim..."
-    git clone --depth 1 https://github.com/LazyVim/starter ~/.config/nvim
-    rm -rf ~/.config/nvim/.git
+  setup_chaotic_aur
+  sudo pacman -Syu --noconfirm
 
-    step "Setting up PostgreSQL..."
-    sudo -u postgres initdb -D /var/lib/postgres/data
+  install_packages
+  setup_i3
 
-    step "Enabling alsa-state service..."
-    sudo systemctl enable alsa-state
-    
-    create_configs
-    setup_autologin
-    
-    step "Reloading systemd daemon..."
-    sudo systemctl daemon-reload
-    
-    info "COMPLETED!"
-    warn "Reboot for autologin and startx to take effect."
+  step "Setting up st..."
+  curl -L https://dl.suckless.org/st/st-0.9.3.tar.gz | sudo tar -xz --strip-components=1 -C /opt/st
+  sudo chown -R $USER /opt/st
+
+  step "Setting up Docker..."
+  sudo usermod -aG docker $USER
+
+  step "Installing Node.js..."
+  curl -o- https://fnm.vercel.app/install | bash
+  export PATH="$HOME/.fnm:$PATH"
+  eval "$(fnm env --shell bash)"
+  fnm install 24
+
+  step "Installing Gemini CLI..."
+  npm install -g @google/gemini-cli
+
+  step "Installing LazyVim..."
+  git clone --depth 1 https://github.com/LazyVim/starter ~/.config/nvim
+  rm -rf ~/.config/nvim/.git
+
+  step "Setting up PostgreSQL..."
+  sudo -u postgres initdb -D /var/lib/postgres/data
+
+  step "Enabling alsa-state service..."
+  sudo systemctl enable alsa-state
+
+  create_configs
+  setup_autologin
+
+  step "Reloading systemd daemon..."
+  sudo systemctl daemon-reload
+
+  info "COMPLETED!"
+  warn "Reboot for autologin and startx to take effect."
 }
 
 main "$@"
