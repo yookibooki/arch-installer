@@ -54,9 +54,7 @@ setup_chaotic_aur() {
 install_packages_and_update_system() {
   step "Updating system and installing packages..."
   local pacman_pkgs=(
-    base-devel go
-    alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr
-    anydesk-bin brave-bin visual-studio-code-bin yay
+    base-devel go alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin yay
   )
   local aur_pkgs=(
     koreader-bin windsurf
