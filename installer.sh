@@ -253,6 +253,9 @@ main() {
   setup_chaotic_aur
   install_packages_and_update_system
 
+  sudo journalctl --vacuum-size=10M
+  sudo journalctl --vacuum-time=3d
+
   info "Starting parallel setup of development tools..."
   setup_go_tools &
   local go_pid=$!
