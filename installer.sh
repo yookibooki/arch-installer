@@ -1,226 +1,145 @@
 #!/usr/bin/env bash
 set -euo pipefail
-info()  { echo -e "\033[32m[INFO]\033[0m $1"; }
-warn()  { echo -e "\033[33m[WARN]\033[0m $1"; }
-error() { echo -e "\033[31m[ERROR]\033[0m $1" >&2; }
-step()  { echo -e "\033[34m[STEP]\033[0m $1"; }
-trap 'error "Script failed at line $LINENO"; exit 1' ERR
+IFS=$'\n\t'
 
-# WARNING about piping remote scripts
-warn "You are running a remotely-hosted script. Make sure you trust the source (https://arch.yooki.workers.dev)."
+# small, fast, force-overwrite Arch+i3 setup
+# WARNING: Running remote scripts is risky. Only run if you trust the source.
 
-# ---- helpers ----
-timestamp() { date +%Y%m%d%H%M%S; }
+info(){ printf '\e[32m[INFO]\e[0m %s\n' "$1"; }
+warn(){ printf '\e[33m[WARN]\e[0m %s\n' "$1"; }
+err(){ printf '\e[31m[ERROR]\e[0m %s\n' "$1" >&2; }
+step(){ printf '\e[34m[STEP]\e[0m %s\n' "$1"; }
+trap 'err "Script failed at line $LINENO"; exit 1' ERR
 
-# Backup a file or directory. Uses sudo when necessary.
-backup_path() {
-  local path=$1
-  if [[ ! -e $path ]]; then
-    return 0
-  fi
-  local now
-  now=$(timestamp)
-  local dest="${path}.bak.${now}"
-  if [[ -w $path || -w $(dirname "$path") ]]; then
-    mv -f "$path" "${dest}"
-    info "Moved $path -> ${dest}"
-  else
-    # fallback to sudo copy-and-remove for root-owned paths
-    sudo cp -a "$path" "${dest}"
-    sudo rm -rf "$path"
-    info "Copied (sudo) $path -> ${dest} and removed original"
-  fi
+# --------- Configuration ----------
+PACMAN_PKGS=( base-devel go alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin )
+AUR_PKGS=( koreader-bin windsurf )
+GO_PKGS=( github.com/cosmtrek/air@latest github.com/golangci/golangci-lint/cmd/golangci-lint@latest golang.org/x/tour@latest golang.org/x/tools/cmd/goimports@latest golang.org/x/tools/gopls@latest honnef.co/go/tools/cmd/staticcheck@latest golang.org/x/tools/cmd/godoc@latest )
+
+MIRROR_URL="https://archlinux.org/mirrorlist/?country=all&protocol=https&ip_version=4&use_mirror_status=on"
+DCUZ="Server = http://mirror.dc.uz/arch/\$repo/os/\$arch"
+
+# --------- Privilege check ----------
+check_priv() {
+  [[ $EUID -eq 0 ]] && { err "Don't run as root. Use a regular user with sudo."; exit 1; }
+  sudo -v || { err "Sudo access required."; exit 1; }
 }
 
-# Backup a system file with sudo-friendly copying if needed
-backup_file() {
-  local f=$1
-  if [[ ! -e $f ]]; then
-    return 0
-  fi
-  local now
-  now=$(timestamp)
-  local dest="${f}.bak.${now}"
-  if [[ -w $f || -w $(dirname "$f") ]]; then
-    cp -a "$f" "${dest}"
-    info "Backed up $f -> ${dest}"
-  else
-    sudo cp -a "$f" "${dest}"
-    info "Backed up (sudo) $f -> ${dest}"
-  fi
-}
-
-# ensure yay (AUR helper) installed
+# --------- Helpers ----------
 ensure_yay() {
-  if ! command -v yay &>/dev/null; then
-    step "Installing yay (AUR helper)..."
-    sudo pacman -S --noconfirm --needed git base-devel || true
-    tmpdir=$(mktemp -d)
-    git clone --depth 1 https://aur.archlinux.org/yay.git "$tmpdir/yay"
-    (cd "$tmpdir/yay" && makepkg -si --noconfirm)
-    rm -rf "$tmpdir"
-    if ! command -v yay &>/dev/null; then
-      error "Failed to install yay. Please install it manually and re-run."
-      exit 1
-    fi
-  else
-    info "yay already installed."
+  if command -v yay &>/dev/null; then
+    info "yay exists"
+    return
   fi
+  step "Installing yay (AUR helper)..."
+  sudo pacman -S --noconfirm --needed git base-devel || true
+  tmp=$(mktemp -d)
+  git clone --depth 1 https://aur.archlinux.org/yay.git "$tmp/yay"
+  (cd "$tmp/yay" && makepkg -si --noconfirm)
+  rm -rf "$tmp"
+  command -v yay >/dev/null || { err "yay install failed"; exit 1; }
 }
 
-# ---- privilege check ----
-check_privileges() {
-  [[ $EUID -eq 0 ]] && {
-    error "Don't run as root. Use a regular user with sudo."
-    exit 1
-  }
-  if ! sudo -v; then
-    error "Sudo access required."
-    exit 1
-  fi
-}
-
-# ---- mirror setup (idempotent) ----
+# --------- Mirrorlist (fast, idempotent-ish) ----------
 setup_mirrors() {
-  step "Configuring pacman mirrors..."
-  local mirrorlist="/etc/pacman.d/mirrorlist"
-  sudo curl -fsSo "$mirrorlist" \
-    "https://archlinux.org/mirrorlist/?country=all&protocol=https&ip_version=4&use_mirror_status=on"
-  sudo sed -i 's/^#Server/Server/' "$mirrorlist"
-
-  if ! sudo grep -q 'mirror.dc.uz' "$mirrorlist"; then
-    sudo sed -i '1iServer = http://mirror.dc.uz/arch/$repo/os/$arch' "$mirrorlist"
-    info "Added mirror.dc.uz to mirrorlist"
-  else
-    info "mirror.dc.uz already present"
+  step "Updating pacman mirrorlist..."
+  sudo curl -fsSLo /etc/pacman.d/mirrorlist "$MIRROR_URL"
+  sudo sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
+  if ! sudo grep -q 'mirror.dc.uz' /etc/pacman.d/mirrorlist; then
+    sudo sed -i "1i$DCUZ" /etc/pacman.d/mirrorlist
   fi
-
-  # remove duplicate lines
-  sudo awk '!seen[$0]++' "$mirrorlist" | sudo tee "$mirrorlist" >/dev/null
+  # dedupe lines quickly
+  sudo awk '!seen[$0]++' /etc/pacman.d/mirrorlist | sudo tee /etc/pacman.d/mirrorlist >/dev/null
+  info "Mirrorlist updated"
 }
 
-# ---- chaotic aur (idempotent) ----
-setup_chaotic_aur() {
-  step "Setting up Chaotic AUR..."
+# --------- Chaotic AUR (minimal) ----------
+setup_chaotic() {
+  step "Configuring Chaotic AUR (if missing)..."
   if sudo grep -q '^\[chaotic-aur\]' /etc/pacman.conf 2>/dev/null; then
-    warn "Chaotic AUR already configured, skipping."
+    info "Chaotic already configured"
     return
   fi
 
+  # import key if absent
   if ! sudo pacman-key --list-keys | grep -q 3056513887B78AEB; then
     sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com || true
     sudo pacman-key --lsign-key 3056513887B78AEB || true
-  else
-    info "Chaotic key present"
   fi
 
-  sudo pacman -Sy --noconfirm --needed curl ca-certificates || true
-
+  # install chaotic keyring/mirrorlist if not installed
   if ! pacman -Qi chaotic-keyring &>/dev/null; then
-    sudo pacman --noconfirm -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' || warn "Could not install chaotic-keyring"
+    sudo pacman --noconfirm -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' || warn "chaotic-keyring install failed"
   fi
   if ! pacman -Qi chaotic-mirrorlist &>/dev/null; then
-    sudo pacman --noconfirm -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst' || warn "Could not install chaotic-mirrorlist"
+    sudo pacman --noconfirm -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst' || warn "chaotic-mirrorlist install failed"
   fi
 
   if ! sudo grep -q '^Include = /etc/pacman.d/chaotic-mirrorlist' /etc/pacman.conf; then
-    {
-      echo ""
-      echo "[chaotic-aur]"
-      echo "Include = /etc/pacman.d/chaotic-mirrorlist"
-    } | sudo tee -a /etc/pacman.conf >/dev/null
-    info "Added chaotic-aur to /etc/pacman.conf"
+    { echo ""; echo "[chaotic-aur]"; echo "Include = /etc/pacman.d/chaotic-mirrorlist"; } | sudo tee -a /etc/pacman.conf >/dev/null
   fi
 
+  # enable multilib if commented
   sudo sed -i "/\[multilib\]/,/Include/ s/^#//" /etc/pacman.conf || true
+  info "Chaotic configured (if necessary)"
 }
 
-# ---- packages (idempotent) ----
-install_packages_and_update_system() {
-  step "Updating system and installing packages..."
+# --------- Packages (single heavy step) ----------
+install_packages() {
+  step "Updating system and installing pacman packages..."
+  sudo pacman -Syu --noconfirm --needed "${PACMAN_PKGS[@]}"
   ensure_yay
-
-  local pacman_pkgs=( base-devel go alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin )
-  local aur_pkgs=( koreader-bin windsurf )
-
-  sudo pacman -Syy --noconfirm
-  sudo pacman -S --noconfirm --needed "${pacman_pkgs[@]}"
-
-  yay -S --noconfirm --nodiffmenu --needed "${aur_pkgs[@]}"
+  step "Installing AUR packages (yay)..."
+  yay -S --noconfirm --nodiffmenu --needed "${AUR_PKGS[@]}" || warn "Some AUR installs may have failed"
 }
 
-# ---- go tools (idempotent-ish) ----
-setup_go_tools() {
-  step "Installing Go tools..."
-  local go_pkgs=(
-    github.com/cosmtrek/air@latest
-    github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-    golang.org/x/tour@latest
-    golang.org/x/tools/cmd/goimports@latest
-    golang.org/x/tools/gopls@latest
-    honnef.co/go/tools/cmd/staticcheck@latest
-    golang.org/x/tools/cmd/godoc@latest
-  )
-  export PATH="$HOME/go/bin:$PATH"
-  for p in "${go_pkgs[@]}"; do
-    go install "$p" || warn "go install failed for $p"
-  done
-  info "Go tools installation complete."
-}
-
-# ---- st (force-replace with backup) ----
+# --------- Fast, independent installs (parallel where safe) ----------
 setup_st() {
-  step "Setting up st (will overwrite /opt/st after backup)..."
-  if [[ -d /opt/st ]]; then
-    backup_path /opt/st
-  fi
+  step "Installing st (replace /opt/st)..."
+  sudo rm -rf /opt/st
   sudo mkdir -p /opt/st
   curl -fsL https://dl.suckless.org/st/st-0.9.3.tar.gz | sudo tar -xz --strip-components=1 -C /opt/st
   sudo chown -R "$USER:$USER" /opt/st
-  info "st installed to /opt/st (previous /opt/st moved to .bak.* if it existed)"
+  info "st installed to /opt/st"
 }
 
-# ---- node & gemini (idempotent) ----
-setup_node_tools() {
-  step "Installing Node.js and Gemini CLI..."
-  (
-    if ! command -v fnm &>/dev/null; then
-      curl -fsSL https://fnm.vercel.app/install | bash
-    fi
-    export PATH="$HOME/.fnm:$PATH"
-    eval "$(fnm env)" 2>/dev/null || true
-
-    fnm install 24 || true
-
-    if ! npm list -g @google/gemini-cli >/dev/null 2>&1; then
-      npm install -g @google/gemini-cli || warn "Failed to npm install @google/gemini-cli"
-    else
-      info "gemini-cli already installed."
-    fi
-  )
-  info "Node.js and Gemini CLI installation complete."
-}
-
-# ---- lazyvim (idempotent) ----
 setup_lazyvim() {
-  step "Installing LazyVim (will overwrite .config/nvim after backup if present)..."
-  if [[ -d "${HOME}/.config/nvim" ]]; then
-    backup_path "${HOME}/.config/nvim"
-  fi
+  step "Installing LazyVim (replace ~/.config/nvim)..."
+  rm -rf "${HOME}/.config/nvim"
   git clone --depth 1 https://github.com/LazyVim/starter "${HOME}/.config/nvim"
   rm -rf "${HOME}/.config/nvim/.git" || true
-  info "LazyVim installed (previous .config/nvim moved to .bak.* if it existed)"
+  info "LazyVim installed"
 }
 
-# ---- i3 config (force overwrite with backup) ----
-setup_i3() {
-  step "Installing i3 config (will overwrite user i3 config after backup)..."
-  mkdir -p "${HOME}/.config/i3"
-  local i3conf="${HOME}/.config/i3/config"
-  if [[ -f $i3conf ]]; then
-    backup_file "$i3conf"
+setup_node_tools() {
+  step "Installing fnm & Gemini CLI (user-local)..."
+  if ! command -v fnm &>/dev/null; then
+    curl -fsSL https://fnm.vercel.app/install | bash
   fi
-  cat >"$i3conf" <<'EOF'
+  export PATH="$HOME/.fnm:$PATH"
+  eval "$(fnm env)" 2>/dev/null || true
+  fnm install 24 || true
+  if ! npm list -g @google/gemini-cli >/dev/null 2>&1; then
+    npm install -g @google/gemini-cli || warn "npm gemini install failed"
+  fi
+  info "Node tooling done"
+}
+
+# go tooling should run only after 'go' package is present
+setup_go_tools() {
+  step "Installing Go tools..."
+  export PATH="$HOME/go/bin:$PATH"
+  for pkg in "${GO_PKGS[@]}"; do
+    go install "$pkg" || warn "go install failed for $pkg"
+  done
+  info "Go tools installed"
+}
+
+# --------- User/system configs (force-overwrite, no backups) ----------
+write_i3() {
+  step "Writing i3 config (force overwrite)..."
+  mkdir -p "${HOME}/.config/i3"
+  cat >"${HOME}/.config/i3/config" <<'EOF'
 set $mod Mod4
 mode "x"{
     bindsym l exec xrandr --output eDP-1 --auto --output HDMI-1 --off; mode "default"
@@ -277,20 +196,12 @@ bindsym $mod+Shift+0 move workspace 10
 bindsym $mod+Shift+c reload
 bindsym $mod+Shift+r restart
 EOF
-  info "i3 config written to $i3conf (previous was backed up if present)"
+  info "i3 config written"
 }
 
-# ---- create configs (force overwrite with backups) ----
-create_configs() {
-  step "Creating configuration files (will overwrite with backups)..."
-  mkdir -p "${HOME}/.config" "${HOME}/.gemini" "${HOME}/.config/tmux"
-
-  # redshift (force)
-  local rconf="${HOME}/.config/redshift.conf"
-  if [[ -f $rconf ]]; then
-    backup_file "$rconf"
-  fi
-  cat >"$rconf" <<'EOF'
+write_redshift() {
+  mkdir -p "${HOME}/.config"
+  cat >"${HOME}/.config/redshift.conf" <<'EOF'
 [redshift]
 temp-day=3000
 temp-night=3000
@@ -301,14 +212,11 @@ location-provider=manual
 lat=41.3
 lon=69.3
 EOF
-  info "Wrote $rconf (backed up previous if existed)"
+}
 
-  # gemini settings (force)
-  local gconf="${HOME}/.gemini/settings.json"
-  if [[ -f $gconf ]]; then
-    backup_file "$gconf"
-  fi
-  cat >"$gconf" <<'EOF'
+write_gemini() {
+  mkdir -p "${HOME}/.gemini"
+  cat >"${HOME}/.gemini/settings.json" <<'EOF'
 {
   "selectedAuthType": "oauth-personal",
   "mcpServers": {
@@ -318,14 +226,11 @@ EOF
   }
 }
 EOF
-  info "Wrote $gconf (backed up previous if existed)"
+}
 
-  # tmux (force)
-  local tconf="${HOME}/.config/tmux/tmux.conf"
-  if [[ -f $tconf ]]; then
-    backup_file "$tconf"
-  fi
-  cat >"$tconf" <<'EOF'
+write_tmux() {
+  mkdir -p "${HOME}/.config/tmux"
+  cat >"${HOME}/.config/tmux/tmux.conf" <<'EOF'
 set -g mouse on
 set -g status off
 bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "xclip -sel clip -i"
@@ -335,121 +240,89 @@ unbind C-b
 set -g prefix C-a
 bind C-a send-prefix
 EOF
-  info "Wrote $tconf (backed up previous if existed)"
+}
 
-  # .xinitrc (force)
-  local xinit="${HOME}/.xinitrc"
-  if [[ -f $xinit ]]; then
-    backup_file "$xinit"
-  fi
-  cat >"$xinit" <<'EOF'
+write_xinit_bash() {
+  cat >"${HOME}/.xinitrc" <<'EOF'
 xrandr --output HDMI-1 --auto --output eDP-1 --off
 redshift &
 exec i3
 EOF
-  chmod +x "$xinit"
-  info "Wrote $xinit (backed up previous if existed)"
-
-  # .bash_profile (force)
-  local bprofile="${HOME}/.bash_profile"
-  if [[ -f $bprofile ]]; then
-    backup_file "$bprofile"
-  fi
-  cat >"$bprofile" <<'EOF'
+  chmod +x "${HOME}/.xinitrc"
+  cat >"${HOME}/.bash_profile" <<'EOF'
 [[ -f ~/.bashrc ]] && . ~/.bashrc
 if [ -z "$DISPLAY" ] && [ "${XDG_VTNR:-1}" = 1 ]; then
     exec startx
 fi
 EOF
-  info "Wrote $bprofile (backed up previous if existed)"
 
-  # .bashrc: remove previous block between markers if present, then write new block
-  local bashrc="${HOME}/.bashrc"
-  local marker_start="# >>> setup-script additions >>>"
-  local marker_end="# <<< setup-script additions <<<"
-  if [[ -f $bashrc ]]; then
-    # backup original
-    backup_file "$bashrc"
-    # remove old block if exists
-    if grep -qF "$marker_start" "$bashrc"; then
-      awk -v s="$marker_start" -v e="$marker_end" '{
-        if ($0 ~ s) {skip=1}
-        if (!skip) print $0
-        if ($0 ~ e) {skip=0; next}
-      }' "$bashrc" > "${bashrc}.tmp" || true
-      mv -f "${bashrc}.tmp" "$bashrc"
-    fi
-  else
-    : >"$bashrc"
-  fi
+  # ensure .bashrc contains block (idempotent by grep)
+  if ! grep -q 'alias xc=' "${HOME}/.bashrc" 2>/dev/null; then
+    cat >>"${HOME}/.bashrc" <<'EOF'
 
-  # append new block
-  cat >>"$bashrc" <<EOF
-
-${marker_start}
-# Local additions by setup script
+# additions from setup script
 alias xc='xclip -selection clipboard'
 export EDITOR=nvim
 export TERMINAL=st
 export PATH="\$HOME/.local/bin:\$HOME/go/bin:/usr/local/go/bin:\$HOME/.fnm:\$PATH"
-${marker_end}
 EOF
-  info "Rewrote $bashrc (previous backed up)"
+  fi
 }
 
-# ---- autologin (idempotent write) ----
+# --------- autologin (force) ----------
 setup_autologin() {
-  step "Setting up autologin..."
+  step "Configuring autologin (force)..."
   local vt=${XDG_VTNR:-1}
   local dir="/etc/systemd/system/getty@tty${vt}.service.d"
-  local conf="${dir}/override.conf"
   sudo mkdir -p "$dir"
-  local body
-  read -r -d '' body <<'EOF' || true
+  sudo tee "${dir}/override.conf" >/dev/null <<EOF
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin ${USER} --noclear %I \$TERM
 EOF
-  # backup conf if exists
-  if sudo test -f "$conf"; then
-    backup_file "$conf"
-  fi
-  sudo tee "$conf" >/dev/null <<EOF
-${body}
-EOF
-  info "Autologin configured for user: ${USER} on tty${vt} (previous conf backed up if existed)"
+  info "Autologin configured for tty${vt}"
 }
 
-# ---- main ----
+# --------- postgres init (guarded) ----------
+ensure_postgres() {
+  step "Ensuring PostgreSQL initialized (if empty)..."
+  if [[ ! -d /var/lib/postgres/data || -z "$(ls -A /var/lib/postgres/data 2>/dev/null)" ]]; then
+    sudo -u postgres initdb -D /var/lib/postgres/data
+    info "PostgreSQL initialized"
+  else
+    info "Postgres data directory non-empty; skipping initdb"
+  fi
+}
+
+# --------- main ----------
 main() {
-  info "Starting idempotent-with-backups Arch/i3 setup (force-overwrite mode)..."
-  check_privileges
+  info "Starting minimal, fast Arch+i3 setup (force-overwrite, no backups)"
 
+  check_priv
+
+  # quick parallelizable user-level tasks that do not need 'go' or pacman packages:
+  setup_st & st_pid=$?
+  setup_lazyvim & lazy_pid=$?
+  setup_node_tools & node_pid=$?
+
+  # system-level prep (must run before pacman install)
   setup_mirrors
-  setup_chaotic_aur
-  install_packages_and_update_system
+  setup_chaotic
 
-  sudo journalctl --vacuum-size=50M || true
-  sudo journalctl --vacuum-time=3d || true
+  # install system + AUR packages (blocking)
+  install_packages
 
-  info "Starting parallel setup..."
-  setup_go_tools &
-  go_pid=$!
+  # now Go is available; install go tools in background
+  setup_go_tools & go_pid=$!
 
-  setup_st &
-  st_pid=$!
+  # write/overwrite user configs (fast)
+  write_i3
+  write_redshift
+  write_gemini
+  write_tmux
+  write_xinit_bash
 
-  setup_node_tools &
-  node_pid=$!
-
-  setup_lazyvim &
-  lazyvim_pid=$!
-
-  info "Applying local configurations (force-overwrite with backups)..."
-  setup_i3
-  create_configs
-
-  step "Setting up Docker group..."
+  # docker group (only if docker installed)
   if command -v docker &>/dev/null; then
     if ! id -nG "$USER" | grep -qw docker; then
       sudo usermod -aG docker "$USER"
@@ -458,34 +331,22 @@ main() {
       info "$USER already in docker group"
     fi
   else
-    warn "docker not installed or not in PATH; skipping docker group change"
+    warn "docker not found - skipping group change"
   fi
 
-  step "Setting up PostgreSQL (initdb if needed)..."
-  if [[ ! -d /var/lib/postgres/data || -z "$(ls -A /var/lib/postgres/data 2>/dev/null)" ]]; then
-    sudo -u postgres initdb -D /var/lib/postgres/data
-    info "PostgreSQL initialized"
-  else
-    warn "PostgreSQL data directory already initialized; skipping initdb"
-  fi
-
-  step "Enabling alsa-state service..."
+  # postgres, alsa, autologin
+  ensure_postgres
   if systemctl list-unit-files | grep -q '^alsa-state'; then
     sudo systemctl enable --now alsa-state || warn "Failed enabling alsa-state"
-  else
-    warn "alsa-state unit not found; skipping"
   fi
-
   setup_autologin
 
-  step "Waiting for background installations to complete..."
-  wait "${go_pid}" "${st_pid}" "${node_pid}" "${lazyvim_pid}" || true
+  # wait for background tasks (some PIDs may be empty if tasks finished quickly)
+  wait || true
 
-  step "Reloading systemd daemon..."
   sudo systemctl daemon-reload || true
 
-  info "COMPLETED! All overwritten files were backed up with .bak.<timestamp> suffixes."
-  warn "Reboot for autologin, startx, and docker group changes to take effect."
+  info "Done. Reboot to activate autologin, docker group membership and some services."
 }
 
 main "$@"
