@@ -24,7 +24,7 @@ Flags to disable:
 - **Summarization API for Gemini Nano**  
 - **Writer API for Gemini Nano**
 Settings>search engines:
-`https://www.google.com/search?udm=50&q=%s`
+`https://www.google.com/search?q=%s&udm=50`
 `https://chatgpt.com/?q=%s`
 `https://github.com/search?q=%s&s=stars&o=desc`
 `https://yandex.ru/search/?text=%s`
