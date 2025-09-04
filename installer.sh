@@ -2,9 +2,6 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-# small, fast, force-overwrite Arch+i3 setup
-# WARNING: Running remote scripts is risky. Only run if you trust the source.
-
 info(){ printf '\e[32m[INFO]\e[0m %s\n' "$1"; }
 warn(){ printf '\e[33m[WARN]\e[0m %s\n' "$1"; }
 err(){ printf '\e[31m[ERROR]\e[0m %s\n' "$1" >&2; }
@@ -12,7 +9,7 @@ step(){ printf '\e[34m[STEP]\e[0m %s\n' "$1"; }
 trap 'err "Script failed at line $LINENO"; exit 1' ERR
 
 # --------- Configuration ----------
-PACMAN_PKGS=( base-devel go alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin )
+PACMAN_PKGS=( base-devel go alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv nano xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin )
 AUR_PKGS=( koreader-bin windsurf )
 GO_PKGS=( github.com/cosmtrek/air@latest github.com/golangci/golangci-lint/cmd/golangci-lint@latest golang.org/x/tour@latest golang.org/x/tools/cmd/goimports@latest golang.org/x/tools/gopls@latest honnef.co/go/tools/cmd/staticcheck@latest golang.org/x/tools/cmd/godoc@latest )
 
@@ -43,14 +40,67 @@ ensure_yay() {
 # --------- Mirrorlist (fast, idempotent-ish) ----------
 setup_mirrors() {
   step "Updating pacman mirrorlist..."
+  # Initial mirrorlist setup (run once during install)
   sudo curl -fsSLo /etc/pacman.d/mirrorlist "$MIRROR_URL"
   sudo sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
+  sudo sed -i '/mirror\.dc\.uz/d' /etc/pacman.d/mirrorlist
+  sudo sed -i '/mirror\.yandex\.ru/d' /etc/pacman.d/mirrorlist
   if ! sudo grep -q 'mirror.dc.uz' /etc/pacman.d/mirrorlist; then
     sudo sed -i "1i$DCUZ" /etc/pacman.d/mirrorlist
   fi
-  # dedupe lines quickly
+  if ! sudo grep -q 'mirror.yandex.ru' /etc/pacman.d/mirrorlist; then
+    sudo sed -i "1iServer = http://mirror.yandex.ru/arch/\$repo/os/\$arch" /etc/pacman.d/mirrorlist
+  fi
+  # Dedupe lines
   sudo awk '!seen[$0]++' /etc/pacman.d/mirrorlist | sudo tee /etc/pacman.d/mirrorlist >/dev/null
-  info "Mirrorlist updated"
+  info "Mirrorlist updated (initial setup)"
+}
+
+# --------- Mirrorlist Update Service and Timer ----------
+setup_mirrorlist_service() {
+  step "Setting up mirrorlist update service and timer..."
+
+  # Write update-mirrorlist.sh
+  sudo mkdir -p /usr/local/bin
+  sudo tee /usr/local/bin/update-mirrorlist.sh >/dev/null <<'EOF'
+#!/bin/bash
+set -e
+curl -so /etc/pacman.d/mirrorlist "https://archlinux.org/mirrorlist/?country=all&protocol=https&ip_version=4&use_mirror_status=on"
+sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
+sed -i '/mirror\.dc\.uz/d' /etc/pacman.d/mirrorlist
+sed -i '/mirror\.yandex\.ru/d' /etc/pacman.d/mirrorlist
+sed -i '1iServer = http://mirror.dc.uz/arch/$repo/os/$arch' /etc/pacman.d/mirrorlist
+sed -i '1iServer = http://mirror.yandex.ru/arch/$repo/os/$arch' /etc/pacman.d/mirrorlist
+EOF
+  sudo chmod +x /usr/local/bin/update-mirrorlist.sh
+
+  # Write update-mirrorlist.service
+  sudo tee /etc/systemd/system/update-mirrorlist.service >/dev/null <<'EOF'
+[Unit]
+Description=Update Arch Linux mirrorlist
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/update-mirrorlist.sh
+EOF
+
+  # Write update-mirrorlist.timer
+  sudo tee /etc/systemd/system/update-mirrorlist.timer >/dev/null <<'EOF'
+[Unit]
+Description=Run update-mirrorlist.service weekly
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  # Enable and start the timer
+  sudo systemctl enable update-mirrorlist.timer
+  sudo systemctl start update-mirrorlist.timer
+  info "Mirrorlist update service and timer configured"
 }
 
 # --------- Chaotic AUR (minimal) ----------
@@ -301,12 +351,13 @@ main() {
   check_priv
 
   # quick parallelizable user-level tasks that do not need 'go' or pacman packages:
-  setup_st & st_pid=$?
-  setup_lazyvim & lazy_pid=$?
-  setup_node_tools & node_pid=$?
+  setup_st & st_pid=$!
+  setup_lazyvim & lazy_pid=$!
+  setup_node_tools & node_pid=$!
 
   # system-level prep (must run before pacman install)
   setup_mirrors
+  setup_mirrorlist_service  # Add this line
   setup_chaotic
 
   # install system + AUR packages (blocking)
