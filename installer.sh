@@ -21,8 +21,7 @@ run_or_warn() {
 }
 
 # --------- Configuration ----------
-# 'go' removed from this list, 'jq' added for the manual Go installer
-PACMAN_PKGS=( base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv nano xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin jq )
+PACMAN_PKGS=( base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv nano xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin jq libx11 libxft )
 AUR_PKGS=( koreader-bin windsurf )
 GO_PKGS=( github.com/cosmtrek/air@latest github.com/golangci/golangci-lint/cmd/golangci-lint@latest golang.org/x/tour@latest golang.org/x/tools/cmd/goimports@latest golang.org/x/tools/gopls@latest honnef.co/go/tools/cmd/staticcheck@latest golang.org/x/tools/cmd/godoc@latest )
 
@@ -161,11 +160,33 @@ setup_go_manual() {
 
 # --------- Fast, independent installs (parallel where safe) ----------
 setup_st() {
-  step "Installing st (replace /opt/st)..."
-  sudo rm -rf /opt/st; sudo mkdir -p /opt/st
-  curl -fsL https://dl.suckless.org/st/st-0.9.3.tar.gz | sudo tar -xz --strip-components=1 -C /opt/st
-  sudo chown -R "$USER:$USER" /opt/st
-  info "st installed to /opt/st"
+  step "Compiling and installing st with custom config..."
+  local tmp
+  tmp=$(mktemp -d)
+  
+  info "Downloading st source..."
+  curl -fsL https://dl.suckless.org/st/st-0.9.3.tar.gz | tar -xz --strip-components=1 -C "$tmp"
+
+  info "Patching st config files..."
+  local st_config_h="$tmp/config.h"
+  local st_config_mk="$tmp/config.mk"
+
+  # Apply changes to config.h
+  sed -i "s/static char \*font = .*/static char *font = \"FiraCode Nerd Font Mono:pixelsize=21:antialias=true:autohint=true\";/" "$st_config_h"
+  sed -i "s/static int borderpx = .*/static int borderpx = 0;/" "$st_config_h"
+  sed -i "s/static unsigned int blinktimeout = .*/static unsigned int blinktimeout = 0;/" "$st_config_h"
+  sed -i "s/static unsigned int cursorshape = .*/static unsigned int cursorshape = 4;/" "$st_config_h"
+
+  # Apply changes to config.mk
+  sed -i "s|^X11INC = .*|X11INC = /usr/include|" "$st_config_mk"
+  sed -i "s|^X11LIB = .*|X11LIB = /usr/lib|" "$st_config_mk"
+
+  info "Compiling and installing st..."
+  (cd "$tmp" && make)
+  (cd "$tmp" && sudo make install)
+
+  rm -rf "$tmp"
+  info "st successfully compiled and installed."
 }
 
 setup_lazyvim() {
@@ -262,7 +283,6 @@ bindsym $mod+Shift+r restart
 EOF
   info "i3 config written"
 }
-
 write_redshift() { mkdir -p "${HOME}/.config"; cat >"${HOME}/.config/redshift.conf" <<'EOF'
 [redshift]
 temp-day=3000; temp-night=3000; transition=0; adjustment-method=randr; location-provider=manual
@@ -278,7 +298,6 @@ write_tmux() { mkdir -p "${HOME}/.config/tmux"; cat >"${HOME}/.config/tmux/tmux.
 set -g mouse on; set -g status off; bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "xclip -sel clip -i"; set -g base-index 1; setw -g pane-base-index 1; unbind C-b; set -g prefix C-a; bind C-a send-prefix
 EOF
 }
-
 write_xinit_bash() {
   cat >"${HOME}/.xinitrc" <<'EOF'
 xrandr --output HDMI-1 --auto --output eDP-1 --off
