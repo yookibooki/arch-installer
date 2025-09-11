@@ -21,9 +21,9 @@ run_or_warn() {
 }
 
 # --------- Configuration ----------
-PACMAN_PKGS=( base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv nano xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin jq libx11 libxft )
+PACMAN_PKGS=( golangci-lint base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv nano xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin jq libx11 libxft )
 AUR_PKGS=( koreader-bin windsurf )
-GO_PKGS=( github.com/cosmtrek/air@latest github.com/golangci/golangci-lint/cmd/golangci-lint@latest golang.org/x/tour@latest golang.org/x/tools/cmd/goimports@latest golang.org/x/tools/gopls@latest honnef.co/go/tools/cmd/staticcheck@latest golang.org/x/tools/cmd/godoc@latest )
+GO_PKGS=( github.com/gordonklaus/ineffassign@latest golang.org/x/tools/cmd/goimports@latest mvdan.cc/gofumpt@latest github.com/golangci/golangci-lint/cmd/golangci-lint@latest honnef.co/go/tools/cmd/staticcheck@latest golang.org/x/vuln/cmd/govulncheck@latest github.com/goreleaser/goreleaser@latest github.com/go-delve/delve/cmd/dlv@latest github.com/kisielk/errcheck@latest github.com/mgechev/revive@latest github.com/josharian/impl@latest github.com/haya14busa/goplay/cmd/goplay@latest golang.org/x/tools/cmd/gotype@latest golang.org/x/tools/gopls@latest golang.org/x/tools/cmd/godoc@latest )
 
 # --------- Privilege check ----------
 check_priv() {
