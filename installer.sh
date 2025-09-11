@@ -59,7 +59,7 @@ sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
 sed -i '/mirror\.dc\.uz/d' /etc/pacman.d/mirrorlist
 sed -i '/mirror\.yandex\.ru/d' /etc/pacman.d/mirrorlist
 sed -i '1iServer = http://mirror.dc.uz/arch/$repo/os/$arch' /etc/pacman.d/mirrorlist
-sed -i '1iServer = http://mirror.yandex.ru/arch/$repo/os/$arch' /etc/pacman.d/mirrorlist
+sed -i '1iServer = http://mirror.yandex.ru/archlinux/$repo/os/$arch' /etc/pacman.d/mirrorlist
 awk '!seen[$0]++' /etc/pacman.d/mirrorlist > /tmp/mirrorlist.tmp && mv /tmp/mirrorlist.tmp /etc/pacman.d/mirrorlist
 EOF
   sudo chmod +x /usr/local/bin/update-mirrorlist.sh
