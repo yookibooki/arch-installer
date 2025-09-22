@@ -21,8 +21,8 @@ run_or_warn() {
 }
 
 # --------- Configuration ----------
-PACMAN_PKGS=( golangci-lint base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux ttf-firacode-nerd unzip uv nano xclip xorg-server xorg-xinit xorg-xrandr anydesk-bin brave-bin visual-studio-code-bin jq libx11 libxft )
-AUR_PKGS=( koreader-bin windsurf )
+PACMAN_PKGS=( golangci-lint base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft )
+AUR_PKGS=( koreader-bin windsurf ttf-firacode-nerd uv anydesk-bin brave-bin visual-studio-code-bin )
 GO_PKGS=( github.com/gordonklaus/ineffassign@latest golang.org/x/tools/cmd/goimports@latest mvdan.cc/gofumpt@latest github.com/golangci/golangci-lint/cmd/golangci-lint@latest honnef.co/go/tools/cmd/staticcheck@latest golang.org/x/vuln/cmd/govulncheck@latest github.com/goreleaser/goreleaser@latest github.com/go-delve/delve/cmd/dlv@latest github.com/kisielk/errcheck@latest github.com/mgechev/revive@latest github.com/josharian/impl@latest github.com/haya14busa/goplay/cmd/goplay@latest golang.org/x/tools/cmd/gotype@latest golang.org/x/tools/gopls@latest golang.org/x/tools/cmd/godoc@latest )
 
 # --------- Privilege check ----------
@@ -81,28 +81,15 @@ EOF
   info "Mirrorlist update service and timer configured."
 }
 
-# --------- Chaotic AUR (minimal) ----------
-setup_chaotic() {
-  step "Configuring Chaotic AUR (if missing)..."
-  if sudo grep -q '^\[chaotic-aur\]' /etc/pacman.conf 2>/dev/null; then
-    info "Chaotic AUR already configured."
-    return
-  fi
-  if ! sudo pacman-key --list-keys | grep -q 3056513887B78AEB; then
-    run_or_warn "Importing Chaotic GPG key" sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-    run_or_warn "Locally signing Chaotic GPG key" sudo pacman-key --lsign-key 3056513887B78AEB
-  fi
-  if ! pacman -Qi chaotic-keyring &>/dev/null; then
-    run_or_warn "Installing chaotic-keyring" sudo pacman --noconfirm -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
-  fi
-  if ! pacman -Qi chaotic-mirrorlist &>/dev/null; then
-    run_or_warn "Installing chaotic-mirrorlist" sudo pacman --noconfirm -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
-  fi
-  if ! sudo grep -q '^Include = /etc/pacman.d/chaotic-mirrorlist' /etc/pacman.conf; then
-    { echo ""; echo "[chaotic-aur]"; echo "Include = /etc/pacman.d/chaotic-mirrorlist"; } | sudo tee -a /etc/pacman.conf >/dev/null
-  fi
-  sudo sed -i "/\[multilib\]/,/Include/ s/^#//" /etc/pacman.conf
-  info "Chaotic AUR configured."
+# --------- Pacman Config ----------
+enable_multilib() {
+    step "Ensuring multilib repository is enabled..."
+    if grep -q "^\s*\[multilib\]" /etc/pacman.conf; then
+        info "Multilib repository is already enabled."
+    else
+        sudo sed -i "/\[multilib\]/,/Include/ s/^#//" /etc/pacman.conf
+        info "Multilib repository enabled."
+    fi
 }
 
 # --------- Packages (single heavy step) ----------
@@ -296,7 +283,6 @@ EOF
 }
 write_xinit_bash() {
   cat >"${HOME}/.xinitrc" <<'EOF'
-xrandr --output HDMI-1 --auto --output eDP-1 --off
 redshift &
 exec i3
 EOF
@@ -357,7 +343,7 @@ main() {
 
   # System-level prep (must run before pacman install)
   setup_mirror_updater
-  setup_chaotic
+  enable_multilib
 
   # Install system + AUR packages (blocking)
   install_packages
