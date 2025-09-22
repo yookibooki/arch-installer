@@ -2,199 +2,84 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-# --------- Logging and Globals ----------
 info(){ printf '\e[32m[INFO]\e[0m %s\n' "$1"; }
-warn(){ printf '\e[33m[WARN]\e[0m %s\n' "$1"; }
-err(){ printf '\e[31m[ERROR]\e[0m %s\n' "$1" >&2; }
 step(){ printf '\e[34m[STEP]\e[0m %s\n' "$1"; }
-trap 'err "Script aborted at line $LINENO"; exit 1' ERR
+trap 'exit 1' ERR
 
-FAILURES=()
+PACMAN_PKGS=(golangci-lint base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
+AUR_PKGS=(koreader-bin windsurf ttf-firacode-nerd uv anydesk-bin brave-bin visual-studio-code-bin)
 
-# Helper to run a command and record its failure without exiting the script
-run_or_warn() {
-    local description="$1"
-    shift
-    if ! "$@"; then
-        FAILURES+=("$description: command failed: '$@'")
-    fi
-}
-
-# --------- Configuration ----------
-PACMAN_PKGS=( reflector golangci-lint base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft )
-AUR_PKGS=( koreader-bin windsurf ttf-firacode-nerd uv anydesk-bin brave-bin visual-studio-code-bin )
-GO_PKGS=( github.com/gordonklaus/ineffassign@latest golang.org/x/tools/cmd/goimports@latest mvdan.cc/gofumpt@latest github.com/golangci/golangci-lint/cmd/golangci-lint@latest honnef.co/go/tools/cmd/staticcheck@latest golang.org/x/vuln/cmd/govulncheck@latest github.com/goreleaser/goreleaser@latest github.com/go-delve/delve/cmd/dlv@latest github.com/kisielk/errcheck@latest github.com/mgechev/revive@latest github.com/josharian/impl@latest github.com/haya14busa/goplay/cmd/goplay@latest golang.org/x/tools/cmd/gotype@latest golang.org/x/tools/gopls@latest golang.org/x/tools/cmd/godoc@latest )
-
-# --------- Privilege check ----------
 check_priv() {
-  [[ $EUID -eq 0 ]] && { err "Don't run as root. Use a regular user with sudo."; exit 1; }
-  sudo -v || { err "Sudo access required."; exit 1; }
+  [[ $EUID -eq 0 ]] && exit 1
+  sudo -v || exit 1
 }
 
-# --------- Helpers ----------
 ensure_yay() {
-  if command -v yay &>/dev/null; then
-    info "yay is already installed."
-    return
-  fi
-  step "Installing yay (AUR helper)..."
+  command -v yay &>/dev/null && return
   sudo pacman -S --noconfirm --needed git base-devel
-  local tmp
-  tmp=$(mktemp -d)
+  local tmp=$(mktemp -d)
   git clone --depth 1 https://aur.archlinux.org/yay.git "$tmp/yay"
   (cd "$tmp/yay" && makepkg -si --noconfirm)
   rm -rf "$tmp"
-  command -v yay >/dev/null || { err "yay installation failed"; exit 1; }
+  command -v yay >/dev/null || exit 1
 }
 
-# --------- Mirrorlist Update Service and Timer (Single Source of Truth) ----------
 setup_mirror_updater() {
-  step "Setting up reflector for automatic mirrorlist updates..."
-  
-  # Configure reflector
-  sudo tee /etc/xdg/reflector/reflector.conf >/dev/null <<'EOF'
-# Reflector configuration file for the reflector.timer.
-# Select the 200 most recently synchronized HTTPS mirrors and sort them by speed.
---save /etc/pacman.d/mirrorlist
---protocol https
---latest 200
---sort rate
+  sudo mkdir -p /usr/local/bin
+  sudo tee /usr/local/bin/update-mirrorlist.sh >/dev/null <<'EOF'
+#!/bin/bash
+set -euo pipefail
+curl -fsSo /etc/pacman.d/mirrorlist "https://archlinux.org/mirrorlist/?country=all&protocol=https&ip_version=4&use_mirror_status=on"
+sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
+awk '!seen[$0]++' /etc/pacman.d/mirrorlist > /tmp/mirrorlist.tmp && mv /tmp/mirrorlist.tmp /etc/pacman.d/mirrorlist
 EOF
-
-  info "Performing initial mirrorlist update with reflector..."
-  # Run reflector with the same parameters for the initial setup
-  sudo reflector --verbose --protocol https --latest 200 --sort rate --save /etc/pacman.d/mirrorlist
-
-  # Enable the standard systemd timer that comes with the reflector package
-  sudo systemctl enable --now reflector.timer
-  info "Reflector timer enabled for weekly mirror updates."
+  sudo chmod +x /usr/local/bin/update-mirrorlist.sh
+  sudo /usr/local/bin/update-mirrorlist.sh
+  sudo tee /etc/systemd/system/update-mirrorlist.service >/dev/null <<'EOF'
+[Unit]
+Description=Update Arch Linux mirrorlist
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/update-mirrorlist.sh
+EOF
+  sudo tee /etc/systemd/system/update-mirrorlist.timer >/dev/null <<'EOF'
+[Unit]
+Description=Run update-mirrorlist.service weekly
+[Timer]
+OnCalendar=weekly
+Persistent=true
+[Install]
+WantedBy=timers.target
+EOF
+  sudo systemctl enable --now update-mirrorlist.timer
 }
 
-# --------- Pacman Config ----------
-enable_multilib() {
-    step "Ensuring multilib repository is enabled..."
-    if grep -q "^\s*\[multilib\]" /etc/pacman.conf; then
-        info "Multilib repository is already enabled."
-    else
-        sudo sed -i "/\[multilib\]/,/Include/ s/^#//" /etc/pacman.conf
-        info "Multilib repository enabled."
-    fi
-}
-
-# --------- Packages (single heavy step) ----------
 install_packages() {
-  step "Updating system and installing pacman packages..."
   sudo pacman -Syu --noconfirm --needed "${PACMAN_PKGS[@]}"
   ensure_yay
-  step "Installing AUR packages (yay)..."
-  for pkg in "${AUR_PKGS[@]}"; do
-    run_or_warn "AUR install of $pkg" yay -S --noconfirm --nodiffmenu --needed "$pkg"
-  done
+  yay -S --noconfirm --nodiffmenu --needed "${AUR_PKGS[@]}" || true
 }
 
-# --------- Go Installation (Manual) ----------
-setup_go_manual() {
-    step "Checking and installing latest Go version manually..."
-    local latest_version current_version
-    latest_version="$(curl -s 'https://go.dev/dl/?mode=json' | jq -r '.[0].version')"
-    current_version="$('/usr/local/go/bin/go' version 2>/dev/null | awk '{print $3}')" || current_version="not_installed"
-
-    if [[ "$current_version" == "$latest_version" ]]; then
-        info "Go is already up-to-date at version ${latest_version}"
-        return
-    fi
-    info "Found new Go version: ${latest_version} (current: ${current_version}). Installing..."
-
-    local arch os
-    case "$(uname -m)" in
-        x86_64) arch="amd64" ;;
-        armv6l | armv7l) arch="armv6l" ;;
-        aarch64 | arm64) arch="arm64" ;;
-        *) err "Unsupported architecture for Go install: $(uname -m)"; return 1 ;;
-    esac
-    os="linux" # Hardcoded for this Arch script
-
-    local go_url="https://golang.org/dl/${latest_version}.${os}-${arch}.tar.gz"
-    local tmp_file="/tmp/${latest_version}.${os}-${arch}.tar.gz"
-
-    info "Downloading Go from ${go_url}..."
-    curl -fsSL -o "$tmp_file" "$go_url"
-    
-    info "Removing old Go installation and extracting new one..."
-    sudo rm -rf /usr/local/go
-    sudo tar -C /usr/local -xzf "$tmp_file"
-    
-    rm "$tmp_file"
-    
-    info "Go updated to version $latest_version"
-    /usr/local/go/bin/go version
-}
-
-# --------- Fast, independent installs (parallel where safe) ----------
 setup_st() {
-  step "Compiling and installing st with custom config..."
-  local tmp
-  tmp=$(mktemp -d)
-  
-  info "Downloading st source (v0.9.3)..."
+  local tmp=$(mktemp -d)
   curl -fsL https://dl.suckless.org/st/st-0.9.3.tar.gz | tar -xz --strip-components=1 -C "$tmp"
-
-  info "Patching st config files..."
-  local st_config_h="$tmp/config.h"
-  local st_config_mk="$tmp/config.mk"
-
-  # Apply changes to config.h
-  sed -i "s/static char \*font = .*/static char *font = \"FiraCode Nerd Font Mono:pixelsize=21:antialias=true:autohint=true\";/" "$st_config_h"
-  sed -i "s/static int borderpx = .*/static int borderpx = 0;/" "$st_config_h"
-  sed -i "s/static unsigned int blinktimeout = .*/static unsigned int blinktimeout = 0;/" "$st_config_h"
-  sed -i "s/static unsigned int cursorshape = .*/static unsigned int cursorshape = 4;/" "$st_config_h"
-
-  # Apply changes to config.mk
-  sed -i "s|^X11INC = .*|X11INC = /usr/include|" "$st_config_mk"
-  sed -i "s|^X11LIB = .*|X11LIB = /usr/lib|" "$st_config_mk"
-
-  info "Compiling and installing st..."
-  (cd "$tmp" && make)
-  (cd "$tmp" && sudo make install)
-
+  sed -i "s/static char \*font = .*/static char *font = \"FiraCode Nerd Font Mono:pixelsize=21:antialias=true:autohint=true\";/" "$tmp/config.h"
+  sed -i "s/static int borderpx = .*/static int borderpx = 0;/" "$tmp/config.h"
+  sed -i "s/static unsigned int blinktimeout = .*/static unsigned int blinktimeout = 0;/" "$tmp/config.h"
+  sed -i "s/static unsigned int cursorshape = .*/static unsigned int cursorshape = 4;/" "$tmp/config.h"
+  sed -i "s|^X11INC = .*|X11INC = /usr/include|" "$tmp/config.mk"
+  sed -i "s|^X11LIB = .*|X11LIB = /usr/lib|" "$tmp/config.mk"
+  (cd "$tmp" && make && sudo make install)
   rm -rf "$tmp"
-  info "st successfully compiled and installed."
 }
 
 setup_lazyvim() {
-  step "Installing LazyVim (replace ~/.config/nvim)..."
   rm -rf "${HOME}/.config/nvim"
   git clone --depth 1 https://github.com/LazyVim/starter "${HOME}/.config/nvim"
   rm -rf "${HOME}/.config/nvim/.git" || true
-  info "LazyVim installed"
 }
 
-setup_node_tools() {
-  step "Installing fnm & Gemini CLI (user-local)..."
-  if ! command -v fnm &>/dev/null; then
-    run_or_warn "FNM installation" bash -c "curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell"
-  fi
-  export PATH="$HOME/.local/share/fnm:$PATH"
-  eval "$(fnm env --use-on-cd)"
-  run_or_warn "FNM install Node v24" fnm install 24
-  if ! npm list -g @google/gemini-cli >/dev/null 2>&1; then
-    run_or_warn "NPM install Gemini CLI" npm install -g @google/gemini-cli
-  fi
-  info "Node tooling setup attempted."
-}
-
-setup_go_tools() {
-  step "Installing Go tools..."
-  export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
-  for pkg in "${GO_PKGS[@]}"; do
-    run_or_warn "Go install of $pkg" go install "$pkg"
-  done
-  info "Go tools installation attempted."
-}
-
-# --------- User/system configs (force-overwrite, no backups) ----------
 write_i3() {
-  step "Writing i3 config (force overwrite)..."
   mkdir -p "${HOME}/.config/i3"
   cat >"${HOME}/.config/i3/config" <<'EOF'
 set $mod Mod4
@@ -253,23 +138,25 @@ bindsym $mod+Shift+0 move container to workspace number 10
 bindsym $mod+Shift+c reload
 bindsym $mod+Shift+r restart
 EOF
-  info "i3 config written"
 }
-write_redshift() { mkdir -p "${HOME}/.config"; cat >"${HOME}/.config/redshift.conf" <<'EOF'
+
+write_redshift() { 
+  mkdir -p "${HOME}/.config" 
+  cat >"${HOME}/.config/redshift.conf" <<'EOF'
 [redshift]
 temp-day=3000; temp-night=3000; transition=0; adjustment-method=randr; location-provider=manual
 [manual]
 lat=41.3; lon=69.3
 EOF
 }
-write_gemini() { mkdir -p "${HOME}/.gemini"; cat >"${HOME}/.gemini/settings.json" <<'EOF'
-{ "selectedAuthType": "oauth-personal", "mcpServers": { "context7": { "httpUrl": "https://mcp.context7.com/mcp" } } }
-EOF
-}
-write_tmux() { mkdir -p "${HOME}/.config/tmux"; cat >"${HOME}/.config/tmux/tmux.conf" <<'EOF'
+
+write_tmux() { 
+  mkdir -p "${HOME}/.config/tmux" 
+  cat >"${HOME}/.config/tmux/tmux.conf" <<'EOF'
 set -g mouse on; set -g status off; bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "xclip -sel clip -i"; set -g base-index 1; setw -g pane-base-index 1; unbind C-b; set -g prefix C-a; bind C-a send-prefix
 EOF
 }
+
 write_xinit_bash() {
   cat >"${HOME}/.xinitrc" <<'EOF'
 redshift &
@@ -289,15 +176,12 @@ EOF
 alias xc='xclip -selection clipboard'
 export EDITOR=nvim
 export TERMINAL=st
-export PATH="$HOME/.local/bin:/usr/local/go/bin:$HOME/go/bin:$HOME/.local/share/fnm:$PATH"
-eval "$(fnm env --use-on-cd)"
+export PATH="$HOME/.local/bin:/usr/local/go/bin:$HOME/go/bin:$PATH"
 EOF
   fi
 }
 
-# --------- autologin (force) ----------
 setup_autologin() {
-  step "Configuring autologin (force)..."
   local vt=${XDG_VTNR:-1}
   local dir="/etc/systemd/system/getty@tty${vt}.service.d"
   sudo mkdir -p "$dir"
@@ -306,79 +190,36 @@ setup_autologin() {
 ExecStart=
 ExecStart=-/sbin/agetty --autologin ${USER} --noclear %I \$TERM
 EOF
-  info "Autologin configured for tty${vt}"
 }
 
-# --------- postgres init (guarded) ----------
 ensure_postgres() {
-  step "Ensuring PostgreSQL initialized (if empty)..."
-  if [[ ! -d /var/lib/postgres/data || -z "$(ls -A /var/lib/postgres/data 2>/dev/null)" ]]; then
-    sudo -u postgres initdb -D /var/lib/postgres/data
-    info "PostgreSQL initialized"
-  else
-    info "Postgres data directory non-empty; skipping initdb"
-  fi
+  [[ ! -d /var/lib/postgres/data || -z "$(ls -A /var/lib/postgres/data 2>/dev/null)" ]] && sudo -u postgres initdb -D /var/lib/postgres/data
 }
 
-# --------- main ----------
 main() {
-  info "Starting minimal, fast Arch+i3 setup (force-overwrite, no backups)"
+  info "Starting Arch+i3 setup"
   check_priv
 
-  # Quick parallelizable user-level tasks
   setup_st &
   setup_lazyvim &
-  setup_node_tools &
 
-  # System-level prep (must run before pacman install)
-  # Install reflector first, then use it to update mirrors
-  sudo pacman -Syu --noconfirm --needed reflector
   setup_mirror_updater
-  enable_multilib
-
-  # Install system + AUR packages (blocking)
   install_packages
 
-  # Install Go manually, then install Go tools (blocking, sequential)
-  setup_go_manual
-  setup_go_tools
+  write_i3
+  write_redshift
+  write_tmux
+  write_xinit_bash
 
-  # Write/overwrite user configs (fast)
-  write_i3; write_redshift; write_gemini; write_tmux; write_xinit_bash
+  command -v docker &>/dev/null && ! id -nG "$USER" | grep -qw docker && sudo usermod -aG docker "$USER"
 
-  # Docker group (only if docker installed)
-  if command -v docker &>/dev/null; then
-    if ! id -nG "$USER" | grep -qw docker; then
-      sudo usermod -aG docker "$USER"
-      info "Added $USER to docker group. A reboot or new login is required for this to take effect."
-    else
-      info "$USER already in docker group."
-    fi
-  fi
-
-  # Final service setups
   ensure_postgres
-  run_or_warn "Enable alsa-state service" sudo systemctl enable --now alsa-state.service
+  sudo systemctl enable --now alsa-state.service || true
   setup_autologin
 
-  # Wait for all background tasks to complete
   wait
-
   sudo systemctl daemon-reload
-
-  # --- Final Summary ---
-  if [ ${#FAILURES[@]} -ne 0 ]; then
-      warn "-----------------------------------------------------"
-      warn "SCRIPT FINISHED WITH NON-CRITICAL FAILURES:"
-      for failure in "${FAILURES[@]}"; do
-          err "  - $failure"
-      done
-      warn "-----------------------------------------------------"
-  else
-      info "Script completed successfully with no warnings."
-  fi
-  
-  info "Done. A reboot is recommended to apply all changes (autologin, docker group, etc.)."
+  info "Done. Reboot."
 }
 
 main "$@"

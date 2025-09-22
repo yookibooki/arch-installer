@@ -31,3 +31,8 @@ Settings>search engines:
 `https://github.com/search?q=%s&s=stars&o=desc`
 `https://yandex.ru/search/?text=%s`
 `https://www.youtube.com/results?search_query=%s`
+
+
+2. Install Golang `bash <(curl -sL https://git.io/go-installer)`
+3. Install Nodejs `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash && . "$HOME/.nvm/nvm.sh" && nvm install 24
+4. Optionally Install gemini, q and others if you want
