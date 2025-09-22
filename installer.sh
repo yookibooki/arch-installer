@@ -7,7 +7,7 @@ step(){ printf '\e[34m[STEP]\e[0m %s\n' "$1"; }
 trap 'exit 1' ERR
 
 PACMAN_PKGS=(golangci-lint base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
-AUR_PKGS=(koreader-bin windsurf ttf-firacode-nerd uv anydesk-bin brave-bin visual-studio-code-bin)
+AUR_PKGS=(yay-bin koreader-bin windsurf ttf-firacode-nerd uv anydesk-bin brave-bin visual-studio-code-bin)
 
 check_priv() {
   [[ $EUID -eq 0 ]] && exit 1
@@ -18,8 +18,8 @@ ensure_yay() {
   command -v yay &>/dev/null && return
   sudo pacman -S --noconfirm --needed git base-devel
   local tmp=$(mktemp -d)
-  git clone --depth 1 https://aur.archlinux.org/yay.git "$tmp/yay"
-  (cd "$tmp/yay" && makepkg -si --noconfirm)
+  git clone --depth 1 https://aur.archlinux.org/yay-bin.git "$tmp/yay-bin"
+  (cd "$tmp/yay-bin" && makepkg -si --noconfirm)
   rm -rf "$tmp"
   command -v yay >/dev/null || exit 1
 }
@@ -219,7 +219,7 @@ main() {
 
   wait
   sudo systemctl daemon-reload
-  info "Done. Reboot."
+  info "Done. Reboot recommended."
 }
 
 main "$@"
