@@ -219,7 +219,7 @@ main() {
 
   wait
   sudo systemctl daemon-reload
-  info "Done. Reboot recommended."
+  info "Done. Reboot."
 }
 
 main "$@"
