@@ -16,12 +16,12 @@ run_or_warn() {
     local description="$1"
     shift
     if ! "$@"; then
-        FAILURES+=("$description: command failed: '$*'")
+        FAILURES+=("$description: command failed: '$@'")
     fi
 }
 
 # --------- Configuration ----------
-PACMAN_PKGS=( golangci-lint base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft )
+PACMAN_PKGS=( reflector golangci-lint base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft )
 AUR_PKGS=( koreader-bin windsurf ttf-firacode-nerd uv anydesk-bin brave-bin visual-studio-code-bin )
 GO_PKGS=( github.com/gordonklaus/ineffassign@latest golang.org/x/tools/cmd/goimports@latest mvdan.cc/gofumpt@latest github.com/golangci/golangci-lint/cmd/golangci-lint@latest honnef.co/go/tools/cmd/staticcheck@latest golang.org/x/vuln/cmd/govulncheck@latest github.com/goreleaser/goreleaser@latest github.com/go-delve/delve/cmd/dlv@latest github.com/kisielk/errcheck@latest github.com/mgechev/revive@latest github.com/josharian/impl@latest github.com/haya14busa/goplay/cmd/goplay@latest golang.org/x/tools/cmd/gotype@latest golang.org/x/tools/gopls@latest golang.org/x/tools/cmd/godoc@latest )
 
@@ -49,36 +49,25 @@ ensure_yay() {
 
 # --------- Mirrorlist Update Service and Timer (Single Source of Truth) ----------
 setup_mirror_updater() {
-  step "Setting up and running mirrorlist updater..."
-  sudo mkdir -p /usr/local/bin
-  sudo tee /usr/local/bin/update-mirrorlist.sh >/dev/null <<'EOF'
-#!/bin/bash
-set -euo pipefail
-curl -fsSo /etc/pacman.d/mirrorlist "https://archlinux.org/mirrorlist/?country=all&protocol=https&ip_version=4&use_mirror_status=on"
-sed -i 's/^#Server/Server/' /etc/pacman.d/mirrorlist
-awk '!seen[$0]++' /etc/pacman.d/mirrorlist > /tmp/mirrorlist.tmp && mv /tmp/mirrorlist.tmp /etc/pacman.d/mirrorlist
+  step "Setting up reflector for automatic mirrorlist updates..."
+  
+  # Configure reflector
+  sudo tee /etc/xdg/reflector/reflector.conf >/dev/null <<'EOF'
+# Reflector configuration file for the reflector.timer.
+# Select the 200 most recently synchronized HTTPS mirrors and sort them by speed.
+--save /etc/pacman.d/mirrorlist
+--protocol https
+--latest 200
+--sort rate
 EOF
-  sudo chmod +x /usr/local/bin/update-mirrorlist.sh
-  info "Performing initial mirrorlist update..."
-  sudo /usr/local/bin/update-mirrorlist.sh
-  sudo tee /etc/systemd/system/update-mirrorlist.service >/dev/null <<'EOF'
-[Unit]
-Description=Update Arch Linux mirrorlist
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/update-mirrorlist.sh
-EOF
-  sudo tee /etc/systemd/system/update-mirrorlist.timer >/dev/null <<'EOF'
-[Unit]
-Description=Run update-mirrorlist.service weekly
-[Timer]
-OnCalendar=weekly
-Persistent=true
-[Install]
-WantedBy=timers.target
-EOF
-  sudo systemctl enable --now update-mirrorlist.timer
-  info "Mirrorlist update service and timer configured."
+
+  info "Performing initial mirrorlist update with reflector..."
+  # Run reflector with the same parameters for the initial setup
+  sudo reflector --verbose --protocol https --latest 200 --sort rate --save /etc/pacman.d/mirrorlist
+
+  # Enable the standard systemd timer that comes with the reflector package
+  sudo systemctl enable --now reflector.timer
+  info "Reflector timer enabled for weekly mirror updates."
 }
 
 # --------- Pacman Config ----------
@@ -147,7 +136,7 @@ setup_st() {
   local tmp
   tmp=$(mktemp -d)
   
-  info "Downloading st source..."
+  info "Downloading st source (v0.9.3)..."
   curl -fsL https://dl.suckless.org/st/st-0.9.3.tar.gz | tar -xz --strip-components=1 -C "$tmp"
 
   info "Patching st config files..."
@@ -212,8 +201,8 @@ set $mod Mod4
 mode "x"{
     bindsym l exec xrandr --output eDP-1 --auto --output HDMI-1 --off; mode "default"
     bindsym e exec xrandr --output HDMI-1 --auto --output eDP-1 --off; mode "default"
-    bindsym p exec sudo systemctl poweroff; mode "default"
-    bindsym r exec sudo systemctl reboot; mode "default"
+    bindsym p exec systemctl poweroff; mode "default"
+    bindsym r exec systemctl reboot; mode "default"
     bindsym Return mode "default"
     bindsym Escape mode "default"
 }
@@ -251,16 +240,16 @@ bindsym $mod+7 workspace number 7
 bindsym $mod+8 workspace number 8
 bindsym $mod+9 workspace number 9
 bindsym $mod+0 workspace number 10
-bindsym $mod+Shift+1 move workspace 1
-bindsym $mod+Shift+2 move workspace 2
-bindsym $mod+Shift+3 move workspace 3
-bindsym $mod+Shift+4 move workspace 4
-bindsym $mod+Shift+5 move workspace 5
-bindsym $mod+Shift+6 move workspace 6
-bindsym $mod+Shift+7 move workspace 7
-bindsym $mod+Shift+8 move workspace 8
-bindsym $mod+Shift+9 move workspace 9
-bindsym $mod+Shift+0 move workspace 10
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+bindsym $mod+Shift+6 move container to workspace number 6
+bindsym $mod+Shift+7 move container to workspace number 7
+bindsym $mod+Shift+8 move container to workspace number 8
+bindsym $mod+Shift+9 move container to workspace number 9
+bindsym $mod+Shift+0 move container to workspace number 10
 bindsym $mod+Shift+c reload
 bindsym $mod+Shift+r restart
 EOF
@@ -342,6 +331,8 @@ main() {
   setup_node_tools &
 
   # System-level prep (must run before pacman install)
+  # Install reflector first, then use it to update mirrors
+  sudo pacman -Syu --noconfirm --needed reflector
   setup_mirror_updater
   enable_multilib
 
