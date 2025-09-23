@@ -6,7 +6,7 @@ info(){ printf '\e[32m[INFO]\e[0m %s\n' "$1"; }
 step(){ printf '\e[34m[STEP]\e[0m %s\n' "$1"; }
 trap 'exit 1' ERR
 
-PACMAN_PKGS=(golangci-lint xorg-xsetroot base-devel alsa-utils btop dmenu docker docker-compose git i3-wm iwd neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
+PACMAN_PKGS=(fontconfig freetype2 golangci-lint xorg-xsetroot base-devel alsa-utils btop dmenu docker docker-compose git i3-wm iwd neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
 AUR_PKGS=(yay-bin koreader-bin windsurf ttf-firacode-nerd uv anydesk-bin brave-bin visual-studio-code-bin)
 
 check_priv() {
@@ -59,20 +59,21 @@ EOF
 install_packages() {
   sudo pacman -Syu --noconfirm --needed "${PACMAN_PKGS[@]}"
   ensure_yay
-  yay -S --noconfirm --needed "${AUR_PKGS[@]}" || true
+  yay -S --noconfirm --needed "${AUR_PKGS[@]}"
 }
 
 setup_st() {
-  local tmp=$(mktemp -d)
-  curl -fsL https://dl.suckless.org/st/st-0.9.3.tar.gz | tar -xz --strip-components=1 -C "$tmp"
+  info "Setting up st (Simple Terminal)"
+  local tmp
+  tmp=$(mktemp -d)
+  git clone --depth 1 https://git.suckless.org/st "$tmp"
   sed -i "s/static char \*font = .*/static char *font = \"FiraCode Nerd Font Mono:pixelsize=21:antialias=true:autohint=true\";/" "$tmp/config.h"
   sed -i "s/static int borderpx = .*/static int borderpx = 0;/" "$tmp/config.h"
   sed -i "s/static unsigned int blinktimeout = .*/static unsigned int blinktimeout = 0;/" "$tmp/config.h"
   sed -i "s/static unsigned int cursorshape = .*/static unsigned int cursorshape = 4;/" "$tmp/config.h"
-  sed -i "s|^X11INC = .*|X11INC = /usr/include|" "$tmp/config.mk"
-  sed -i "s|^X11LIB = .*|X11LIB = /usr/lib|" "$tmp/config.mk"
   (cd "$tmp" && make && sudo make install)
   rm -rf "$tmp"
+  info "st setup complete"
 }
 
 setup_lazyvim() {
@@ -99,9 +100,9 @@ default_border none
 hide_edge_borders smart
 focus_on_window_activation smart
 assign [class="^Brave-browser$"] 1
-assign [class="^st$"] 2
+assign [class="^St$"] 2
+assign [class="^Code$"] 3
 assign [class="^Windsurf$"] 3
-assign [class="^code$"] 3
 bindsym $mod+b workspace number 1; exec brave
 bindsym $mod+Return workspace number 2; exec st -e tmux new -A -s main
 bindsym $mod+w workspace number 3; exec windsurf
@@ -197,23 +198,17 @@ EOF
 main() {
   info "Starting Arch+i3 setup"
   check_priv
-
-  setup_st &
-  setup_lazyvim &
-
   setup_mirror_updater
   install_packages
-
-  write_i3
-  write_redshift
-  write_tmux
-  write_xinit_bash
-
+  setup_st &
+  setup_lazyvim &
+  write_i3 &
+  write_redshift &
+  write_tmux &
+  write_xinit_bash &
   command -v docker &>/dev/null && ! id -nG "$USER" | grep -qw docker && sudo usermod -aG docker "$USER"
-
-  sudo systemctl enable --now alsa-state.service || true
+  sudo systemctl enable --now alsa-state.service
   setup_autologin
-
   wait
   sudo systemctl daemon-reload
   info "Done. Reboot."
