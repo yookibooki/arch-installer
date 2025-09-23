@@ -59,7 +59,7 @@ EOF
 install_packages() {
   sudo pacman -Syu --noconfirm --needed "${PACMAN_PKGS[@]}"
   ensure_yay
-  yay -S --noconfirm --nodiffmenu --needed "${AUR_PKGS[@]}" || true
+  yay -S --noconfirm --needed "${AUR_PKGS[@]}" || true
 }
 
 setup_st() {
