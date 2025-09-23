@@ -44,9 +44,9 @@ ExecStart=/usr/local/bin/update-mirrorlist.sh
 EOF
   sudo tee /etc/systemd/system/update-mirrorlist.timer >/dev/null <<'EOF'
 [Unit]
-Description=Run update-mirrorlist.service daily
+Description=Run update-mirrorlist.service every 3 days
 [Timer]
-OnCalendar=daily
+OnUnitActiveSec=3d
 Persistent=true
 [Install]
 WantedBy=timers.target
