@@ -67,10 +67,15 @@ setup_st() {
   local tmp
   tmp=$(mktemp -d)
   git clone --depth 1 https://git.suckless.org/st "$tmp"
+
+  # ensure config.h exists
+  cp "$tmp/config.def.h" "$tmp/config.h"
+
   sed -i "s/static char \*font = .*/static char *font = \"FiraCode Nerd Font Mono:pixelsize=21:antialias=true:autohint=true\";/" "$tmp/config.h"
   sed -i "s/static int borderpx = .*/static int borderpx = 0;/" "$tmp/config.h"
   sed -i "s/static unsigned int blinktimeout = .*/static unsigned int blinktimeout = 0;/" "$tmp/config.h"
   sed -i "s/static unsigned int cursorshape = .*/static unsigned int cursorshape = 4;/" "$tmp/config.h"
+
   (cd "$tmp" && make && sudo make install)
   rm -rf "$tmp"
   info "st setup complete"
