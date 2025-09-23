@@ -16,7 +16,9 @@ check_priv() {
 
 ensure_yay() {
   command -v yay &>/dev/null && return
-  sudo pacman -S --noconfirm --needed git base-devel
+  if ! command -v git &>/dev/null; then
+    sudo pacman -S --noconfirm --needed git base-devel
+  fi
   local tmp=$(mktemp -d)
   git clone --depth 1 https://aur.archlinux.org/yay-bin.git "$tmp/yay-bin"
   (cd "$tmp/yay-bin" && makepkg -si --noconfirm)
