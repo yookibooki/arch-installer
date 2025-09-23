@@ -6,7 +6,7 @@ info(){ printf '\e[32m[INFO]\e[0m %s\n' "$1"; }
 step(){ printf '\e[34m[STEP]\e[0m %s\n' "$1"; }
 trap 'exit 1' ERR
 
-PACMAN_PKGS=(golangci-lint base-devel alsa-utils arch-wiki-lite btop dmenu docker docker-compose git i3-wm intel-ucode iwd linux-firmware neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
+PACMAN_PKGS=(golangci-lint base-devel alsa-utils btop dmenu docker docker-compose git i3-wm iwd neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
 AUR_PKGS=(yay-bin koreader-bin windsurf ttf-firacode-nerd uv anydesk-bin brave-bin visual-studio-code-bin)
 
 check_priv() {
