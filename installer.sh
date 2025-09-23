@@ -194,10 +194,6 @@ ExecStart=-/sbin/agetty --autologin ${USER} --noclear %I \$TERM
 EOF
 }
 
-ensure_postgres() {
-  [[ ! -d /var/lib/postgres/data || -z "$(ls -A /var/lib/postgres/data 2>/dev/null)" ]] && sudo -u postgres initdb -D /var/lib/postgres/data
-}
-
 main() {
   info "Starting Arch+i3 setup"
   check_priv
@@ -215,7 +211,6 @@ main() {
 
   command -v docker &>/dev/null && ! id -nG "$USER" | grep -qw docker && sudo usermod -aG docker "$USER"
 
-  ensure_postgres
   sudo systemctl enable --now alsa-state.service || true
   setup_autologin
 
