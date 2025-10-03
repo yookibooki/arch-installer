@@ -6,8 +6,8 @@ info(){ printf '\e[32m[INFO]\e[0m %s\n' "$1"; }
 step(){ printf '\e[34m[STEP]\e[0m %s\n' "$1"; }
 trap 'exit 1' ERR
 
-PACMAN_PKGS=(fontconfig freetype2 golangci-lint xorg-xsetroot base-devel alsa-utils btop dmenu docker docker-compose git i3-wm iwd neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
-AUR_PKGS=(yay-bin koreader-bin windsurf ttf-firacode-nerd uv anydesk-bin brave-bin visual-studio-code-bin)
+PACMAN_PKGS=(uv otf-firamono-nerd fontconfig freetype2 golangci-lint xorg-xsetroot base-devel alsa-utils btop dmenu docker docker-compose git i3-wm iwd neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
+AUR_PKGS=(koreader-bin windsurf anydesk-bin brave-bin visual-studio-code-bin)
 
 check_priv() {
   [[ $EUID -eq 0 ]] && exit 1
@@ -71,7 +71,7 @@ setup_st() {
   # ensure config.h exists
   cp "$tmp/config.def.h" "$tmp/config.h"
 
-  sed -i "s/static char \*font = .*/static char *font = \"FiraCode Nerd Font Mono:pixelsize=21:antialias=true:autohint=true\";/" "$tmp/config.h"
+  sed -i "s/static char \*font = .*/static char *font = \"FiraMono Nerd Font Mono:pixelsize=19:antialias=true:autohint=true\";/" "$tmp/config.h"
   sed -i "s/static int borderpx = .*/static int borderpx = 0;/" "$tmp/config.h"
   sed -i "s/static unsigned int blinktimeout = .*/static unsigned int blinktimeout = 0;/" "$tmp/config.h"
   sed -i "s/static unsigned int cursorshape = .*/static unsigned int cursorshape = 4;/" "$tmp/config.h"
