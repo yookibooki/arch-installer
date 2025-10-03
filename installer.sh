@@ -63,22 +63,26 @@ install_packages() {
 }
 
 setup_st() {
-  info "Setting up st (Simple Terminal)"
-  local tmp
-  tmp=$(mktemp -d)
-  git clone --depth 1 https://git.suckless.org/st "$tmp"
+  step "Setting up st (Simple Terminal) from source"
+  local st_dir="/opt/st"
 
+  info "Cloning st repository into $st_dir"
+  sudo rm -rf "$st_dir"
+  sudo git clone --depth 1 https://git.suckless.org/st "$st_dir"
+  sudo chown -R "$USER:$USER" "$st_dir"
+
+  info "Applying custom configuration to st"
   # ensure config.h exists
-  cp "$tmp/config.def.h" "$tmp/config.h"
+  cp "$st_dir/config.def.h" "$st_dir/config.h"
 
-  sed -i "s/static char \*font = .*/static char *font = \"FiraMono Nerd Font Mono:pixelsize=19:antialias=true:autohint=true\";/" "$tmp/config.h"
-  sed -i "s/static int borderpx = .*/static int borderpx = 0;/" "$tmp/config.h"
-  sed -i "s/static unsigned int blinktimeout = .*/static unsigned int blinktimeout = 0;/" "$tmp/config.h"
-  sed -i "s/static unsigned int cursorshape = .*/static unsigned int cursorshape = 4;/" "$tmp/config.h"
+  sed -i "s/static char \*font = .*/static char *font = \"FiraMono Nerd Font Mono:pixelsize=19:antialias=true:autohint=true\";/" "$st_dir/config.h"
+  sed -i "s/static int borderpx = .*/static int borderpx = 0;/" "$st_dir/config.h"
+  sed -i "s/static unsigned int blinktimeout = .*/static unsigned int blinktimeout = 0;/" "$st_dir/config.h"
+  sed -i "s/static unsigned int cursorshape = .*/static unsigned int cursorshape = 4;/" "$st_dir/config.h"
 
-  (cd "$tmp" && make && sudo make install)
-  rm -rf "$tmp"
-  info "st setup complete"
+  info "Compiling and installing st"
+  (cd "$st_dir" && make && sudo make install)
+  info "st setup complete. Source is in $st_dir for reconfiguration."
 }
 
 setup_lazyvim() {
