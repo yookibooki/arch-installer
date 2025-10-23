@@ -56,8 +56,31 @@ EOF
   sudo systemctl enable --now update-mirrorlist.timer
 }
 
+install_golang() {
+  step "Installing or updating Go"
+  local latest_version
+  local current_version
+  latest_version=$(curl -s https://go.dev/VERSION?m=text | head -n1)
+  current_version=$(/usr/local/go/bin/go version 2>/dev/null | awk '{print $3}' ||:)
+
+  if [ "$current_version" = "$latest_version" ]; then
+    info "Go $current_version is already up to date"
+    return
+  fi
+
+  local file="${latest_version}.linux-amd64.tar.gz"
+  info "Downloading Go $latest_version"
+  curl -LO "https://go.dev/dl/$file"
+  info "Installing Go $latest_version"
+  sudo rm -rf /usr/local/go
+  sudo tar -C /usr/local -xzf "$file"
+  rm -f "$file"
+  info "Go $latest_version installed successfully"
+}
+
 install_packages() {
   sudo pacman -Syu --noconfirm --needed "${PACMAN_PKGS[@]}"
+  install_golang
   ensure_yay
   yay -S --noconfirm --needed "${AUR_PKGS[@]}"
 }
@@ -72,10 +95,8 @@ setup_st() {
   sudo chown -R "$USER:$USER" "$st_dir"
 
   info "Applying custom configuration to st"
-  # ensure config.h exists
   cp "$st_dir/config.def.h" "$st_dir/config.h"
-
-  sed -i "s/static char \*font = .*/static char *font = \"FiraMono Nerd Font Mono:pixelsize=19:antialias=true:autohint=true\";/" "$st_dir/config.h"
+  sed -i "s/static char *font = .*/static char *font = \"FiraMono Nerd Font Mono:pixelsize=19:antialias=true:autohint=true\";/" "$st_dir/config.h"
   sed -i "s/static int borderpx = .*/static int borderpx = 0;/" "$st_dir/config.h"
   sed -i "s/static unsigned int blinktimeout = .*/static unsigned int blinktimeout = 0;/" "$st_dir/config.h"
   sed -i "s/static unsigned int cursorshape = .*/static unsigned int cursorshape = 4;/" "$st_dir/config.h"
