@@ -6,8 +6,8 @@ info(){ printf '\e[32m[INFO]\e[0m %s\n' "$1"; }
 step(){ printf '\e[34m[STEP]\e[0m %s\n' "$1"; }
 trap 'exit 1' ERR
 
-PACMAN_PKGS=(uv otf-firamono-nerd fontconfig freetype2 golangci-lint xorg-xsetroot base-devel alsa-utils btop dmenu docker docker-compose git i3-wm iwd neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
-AUR_PKGS=(koreader-bin windsurf anydesk-bin brave-bin visual-studio-code-bin)
+PACMAN_PKGS=(uv otf-firamono-nerd fontconfig freetype2 xorg-xsetroot base-devel alsa-utils btop dmenu docker docker-compose git i3-wm iwd neovim noto-fonts-emoji openssh postgresql redshift tmux unzip nano xclip xorg-server xorg-xinit xorg-xrandr jq libx11 libxft)
+AUR_PKGS=(koreader-bin windsurf anydesk-bin brave-bin)
 
 check_priv() {
   [[ $EUID -eq 0 ]] && exit 1
