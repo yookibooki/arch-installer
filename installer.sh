@@ -110,7 +110,6 @@ hide_edge_borders smart
 focus_on_window_activation smart
 assign [class="^Brave-browser$"] 1
 assign [class="^St$"] 2
-assign [class="^Code$"] 3
 assign [class="^Windsurf$"] 3
 bindsym $mod+b workspace number 1; exec brave
 bindsym $mod+Return workspace number 2; exec st -e tmux new -A -s main
