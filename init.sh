@@ -6,7 +6,7 @@ sudo -v
 SETUP_DIR="$HOME/.arch-installer"
 
 PACMAN_PKGS=(zed i3-wm dmenu alsa-utils noto-fonts noto-fonts-cjk noto-fonts-emoji noto-fonts-extra ttf-firacode-nerd ttf-nerd-fonts-symbols ttf-nerd-fonts-symbols-common fontconfig libxft git gitui github-cli neovim chezmoi docker docker-compose postgresql jq fzf btop tmux less pass openssh efibootmgr brightnessctl reflector redshift rsync unzip xclip xdotool iwd zram-generator bat eza zoxide git-delta dust tealdeer xh fastfetch fd ripgrep wget)
-AUR_PKGS=(mods pass-secret-service-bin brave-bin)
+AUR_PKGS=(mods pass-secret-service-bin brave-bin beads-bin)
 
 git clone --depth 1 https://github.com/yookibooki/arch-installer.git "$SETUP_DIR" || true
 

@@ -1,0 +1,9 @@
+# Beads Issue Tracker
+.beads/beads.db*
+.beads/*.lock
+.beads/*.log
+.beads/*.pid
+.beads/*.sock
+.beads/issues.jsonl
+.beads/interactions.jsonl
+.beads/metadata.json
